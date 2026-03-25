@@ -43,6 +43,13 @@ class TestMemorySave:
         assert memory.category == "daily"
 
     @pytest.mark.asyncio
+    async def test_save_with_custom_category(self, memory_store: MemoryStore):
+        """Custom categories should round-trip without being part of a closed enum."""
+        memory = await memory_store.save(content="先輩との関係についての記憶", category="relationship")
+
+        assert memory.category == "relationship"
+
+    @pytest.mark.asyncio
     async def test_importance_clamping(self, memory_store: MemoryStore):
         """Test importance is clamped to 1-5."""
         memory_low = await memory_store.save(content="Test low", importance=0)

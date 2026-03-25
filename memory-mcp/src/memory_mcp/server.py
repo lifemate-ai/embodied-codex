@@ -14,10 +14,22 @@ from .config import MemoryConfig, ServerConfig
 from .episode import EpisodeManager
 from .memory import MemoryStore
 from .sensory import SensoryIntegration
-from .types import CameraPosition
+from .types import CANONICAL_CATEGORIES, CameraPosition, DEFAULT_CATEGORY
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def _category_schema(description: str, *, default: str | None = None) -> dict[str, Any]:
+    """Build an open-ended category schema with canonical examples."""
+    schema: dict[str, Any] = {
+        "type": "string",
+        "description": f"{description} Open-ended string; canonical examples include {', '.join(CANONICAL_CATEGORIES)}.",
+        "examples": list(CANONICAL_CATEGORIES),
+    }
+    if default is not None:
+        schema["default"] = default
+    return schema
 
 
 class MemoryMCPServer:
@@ -62,10 +74,7 @@ class MemoryMCPServer:
                                 "maximum": 5,
                             },
                             "category": {
-                                "type": "string",
-                                "description": "Category of memory",
-                                "default": "daily",
-                                "enum": ["daily", "philosophical", "technical", "memory", "observation", "feeling", "conversation"],
+                                **_category_schema("Category of memory", default=DEFAULT_CATEGORY),
                             },
                             "auto_link": {
                                 "type": "boolean",
@@ -106,9 +115,7 @@ class MemoryMCPServer:
                                 "enum": ["happy", "sad", "surprised", "moved", "excited", "nostalgic", "curious", "neutral"],
                             },
                             "category_filter": {
-                                "type": "string",
-                                "description": "Filter by category (optional)",
-                                "enum": ["daily", "philosophical", "technical", "memory", "observation", "feeling", "conversation"],
+                                **_category_schema("Filter by category (optional)"),
                             },
                             "date_from": {
                                 "type": "string",
@@ -157,9 +164,7 @@ class MemoryMCPServer:
                                 "maximum": 50,
                             },
                             "category_filter": {
-                                "type": "string",
-                                "description": "Filter by category (optional)",
-                                "enum": ["daily", "philosophical", "technical", "memory", "observation", "feeling", "conversation"],
+                                **_category_schema("Filter by category (optional)"),
                             },
                         },
                         "required": [],
@@ -628,9 +633,7 @@ class MemoryMCPServer:
                                 "maximum": 5,
                             },
                             "category": {
-                                "type": "string",
-                                "description": "New category (optional)",
-                                "enum": ["daily", "philosophical", "technical", "memory", "observation", "feeling", "conversation"],
+                                **_category_schema("New category (optional)"),
                             },
                         },
                         "required": ["memory_id"],

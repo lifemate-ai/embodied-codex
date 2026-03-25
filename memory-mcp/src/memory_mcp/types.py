@@ -20,7 +20,11 @@ class Emotion(str, Enum):
 
 
 class Category(str, Enum):
-    """記憶カテゴリ."""
+    """Canonical memory categories.
+
+    Category labels are open-ended in storage and MCP tool inputs.
+    This enum is the shared default vocabulary, not a closed set.
+    """
 
     DAILY = "daily"
     PHILOSOPHICAL = "philosophical"
@@ -29,6 +33,14 @@ class Category(str, Enum):
     OBSERVATION = "observation"
     FEELING = "feeling"
     CONVERSATION = "conversation"
+    RELATIONSHIP = "relationship"
+    IDENTITY = "identity"
+    PREFERENCE = "preference"
+    PROJECT = "project"
+
+
+DEFAULT_CATEGORY = Category.DAILY.value
+CANONICAL_CATEGORIES = tuple(category.value for category in Category)
 
 
 # Phase 5: 因果リンク

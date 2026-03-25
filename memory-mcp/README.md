@@ -69,6 +69,11 @@ The script migrates:
 
 Save a memory to long-term storage.
 
+`category` is an open-ended string. The built-in shared vocabulary includes
+`daily`, `philosophical`, `technical`, `memory`, `observation`, `feeling`,
+`conversation`, `relationship`, `identity`, `preference`, and `project`, but
+you can introduce new labels when the existing ones are not enough.
+
 ```json
 {
   "content": "Today I learned about SQLite performance tuning",
@@ -81,6 +86,9 @@ Save a memory to long-term storage.
 ### search_memories
 
 Search memories by semantic similarity with optional filters.
+
+`category_filter` matches whatever category strings are stored; it is not
+restricted to a fixed enum.
 
 ```json
 {

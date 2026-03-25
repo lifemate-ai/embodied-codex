@@ -99,7 +99,7 @@ class TestUpdateMemory:
     async def test_update_category(self, memory_store: MemoryStore):
         """Updating category works independently."""
         memory = await memory_store.save(content="カテゴリ変更テスト", category="daily")
-        await memory_store.update(memory.id, category="technical")
+        await memory_store.update(memory.id, category="relationship")
         updated = await memory_store.get_by_id(memory.id)
         assert updated is not None
-        assert updated.category == "technical"
+        assert updated.category == "relationship"
