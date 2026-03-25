@@ -1,0 +1,48 @@
+# mcpBehavior.toml -- Codex CLI が参照する行動設定
+# シークレット（API キー、パスワード等）は各サーバーの .env に記載
+
+[wifi-cam]
+mount_mode = "normal"          # "normal" (卓上) or "ceiling" (天井)
+mic_source = "camera"          # "camera" (RTSP) or "local" (PC マイク)
+capture_max_width = 1920
+capture_max_height = 1080
+capture_dir = "/tmp/wifi-cam-mcp"
+onvif_port = 2020
+
+[tts]
+default_engine = ""            # "elevenlabs", "voicevox", or "" (auto)
+playback = "auto"              # "auto", "stream", "paplay", "ffplay"
+play_audio = true
+save_dir = "/tmp/tts-mcp"
+voice_id = "uYp2UUDeS74htH10iY2e"
+model_id = "eleven_v3"
+output_format = "mp3_44100_128"
+voicevox_speaker = 3
+go2rtc_stream = "tapo_cam"
+go2rtc_ffmpeg = "ffmpeg"
+go2rtc_auto_start = true
+
+[memory]
+db_path = ""                   # "" = default (~/.codex/memories/memory.db)
+collection_name = "codex_memories"
+embedding_model = "intfloat/multilingual-e5-base"
+enable_bm25 = true
+
+[mobility]
+direction_dp = 4
+default_move_duration = 1.0
+max_move_duration = 10.0
+api_region = "cn"
+
+[morning-call]
+local_port = 18765
+
+[hearing]
+whisper_model = "small"
+source = "camera"                  # "local" (PC マイク) or "camera" (RTSP)
+rtsp_url = "rtsp://user:password@192.168.1.100:554/stream1"
+segment_seconds = 5
+language = "ja"
+
+[ip-webcam]
+port = 8080

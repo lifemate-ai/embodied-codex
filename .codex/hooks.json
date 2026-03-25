@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ./.codex/hooks/user-prompt-submit-interoception.sh",
+            "timeout": 5,
+            "statusMessage": "Injecting interoception"
+          }
+        ]
+      }
+    ]
+  }
+}

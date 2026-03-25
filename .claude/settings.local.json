@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__memory__recall_divergent",
+      "Bash(git:*)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "usb-webcam",
+    "system-temperature",
+    "wifi-cam",
+    "memory",
+    "secretary",
+    "mobility",
+    "desire-system",
+    "tts"
+  ]
+}
