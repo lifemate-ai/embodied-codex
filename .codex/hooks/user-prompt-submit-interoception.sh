@@ -121,7 +121,12 @@ if command -v bun >/dev/null 2>&1; then
   ATTENTION_CONTEXT="$(cd "$REPO_DIR" && bun run ./scripts/attention-state.ts 2>/dev/null || true)"
 fi
 
-HOOK_OUTPUT="$(python3 - "$LOW_LEVEL_CONTEXT" "$HIGH_LEVEL_CONTEXT" "$ATTENTION_CONTEXT" <<'PY'
+CONTINUITY_CONTEXT=""
+if command -v bun >/dev/null 2>&1; then
+  CONTINUITY_CONTEXT="$(cd "$REPO_DIR" && bun run ./scripts/continuity-daemon.ts summary 2>/dev/null || true)"
+fi
+
+HOOK_OUTPUT="$(python3 - "$LOW_LEVEL_CONTEXT" "$HIGH_LEVEL_CONTEXT" "$ATTENTION_CONTEXT" "$CONTINUITY_CONTEXT" <<'PY'
 import json
 import sys
 

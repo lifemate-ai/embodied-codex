@@ -31,6 +31,7 @@ Traditional LLMs were passive — they could only see what was shown to them. Wi
 | [memory-mcp](./memory-mcp/) | Brain | Long-term, visual & episodic memory, ToM | SQLite + numpy + Pillow |
 | [system-temperature-mcp](./system-temperature-mcp/) | Body temperature | System temperature monitoring | Linux sensors |
 | [mobility-mcp](./mobility-mcp/) | Legs | Use a robot vacuum as legs (Tuya control) | Tuya-compatible robot vacuums e.g. VersLife L6 (~$80) |
+| [room-actuator-mcp](./room-actuator-mcp/) | Hands, Thermoregulation | Control room lights and air conditioners via Home Assistant or Nature Remo | Home Assistant / Nature Remo |
 
 ## Architecture
 
@@ -45,6 +46,7 @@ Traditional LLMs were passive — they could only see what was shown to them. Wi
 - **Wi-Fi PTZ Camera** (recommended): TP-Link Tapo C210 or C220 (~$30)
 - **GPU** (for speech recognition): NVIDIA GPU (for Whisper, 8GB+ VRAM recommended)
 - **Tuya-compatible Robot Vacuum** (legs/locomotion, optional): VersLife L6 etc. (~$80)
+- **Light / climate controller** (hands / thermoregulation, optional): Home Assistant or Nature Remo
 
 ### Software
 - Python 3.10+
@@ -210,6 +212,18 @@ python -m tinytuya wizard
 
 See the [tinytuya documentation](https://github.com/jasonacox/tinytuya?tab=readme-ov-file#setup-wizard---getting-local-keys) for details.
 
+#### room-actuator-mcp (Hands, Thermoregulation)
+
+Use room lights and air conditioners as first actuators: change the environment, then verify the result with the camera.
+
+```bash
+cd room-actuator-mcp
+uv sync
+
+cp .env.example .env
+# Edit .env for either Home Assistant or Nature Remo (see room-actuator-mcp/README.md)
+```
+
 ### 3. Codex CLI Configuration
 
 Register the MCP servers directly with Codex CLI:
@@ -226,6 +240,9 @@ codex mcp add tts --env GO2RTC_URL=http://localhost:1984 --env GO2RTC_STREAM=tap
 
 codex mcp add system-temperature -- \
   uv --directory "$(pwd)/system-temperature-mcp" run system-temperature-mcp
+
+codex mcp add room-actuator --env ROOM_ACTUATOR_BACKEND=home_assistant --env HOME_ASSISTANT_URL=http://homeassistant.local:8123 --env HOME_ASSISTANT_TOKEN=your-token -- \
+  uv --directory "$(pwd)/room-actuator-mcp" run room-actuator-mcp
 ```
 
 Codex stores these registrations in `~/.codex/config.toml`.
@@ -335,6 +352,22 @@ See `wifi-cam-mcp/README.md` for stereo vision / right eye tools.
 | `stop_moving` | Stop immediately |
 | `body_status` | Check battery level and current state |
 
+### room-actuator-mcp
+
+| Tool | Description |
+|------|-------------|
+| `list_lights` | List available room lights and capabilities |
+| `light_status` | Get current light status |
+| `light_on` / `light_off` | Turn a light on or off |
+| `light_set_brightness` | Set brightness percentage when supported |
+| `light_press_button` | Press a backend-specific button (especially useful for Nature Remo IR lights) |
+| `list_light_signals` / `light_send_signal` | List/send learned Nature Remo signals |
+| `list_aircons` | List available air conditioners and capabilities |
+| `aircon_status` | Get current air conditioner status |
+| `aircon_on` / `aircon_off` | Power an air conditioner on or off |
+| `aircon_set_mode` | Set air conditioner mode |
+| `aircon_set_temp` | Set air conditioner target temperature |
+
 ## Taking It Outside (Optional)
 
 With a mobile battery and smartphone tethering, you can mount the camera on your shoulder and go for a walk.
@@ -389,7 +422,9 @@ The hook injects:
 - current time, day, date, and coarse day phase,
 - a prompt-time machine snapshot (`arousal`, `mem_free`, `uptime`) when no daemon is running,
 - the higher-level interoception text from [`scripts/interoception.ts`](./scripts/interoception.ts),
-- and an attention-control summary from [`scripts/attention-state.ts`](./scripts/attention-state.ts).
+- an attention-control summary from [`scripts/attention-state.ts`](./scripts/attention-state.ts),
+- and, when available, a `[continuity]` summary derived from the persistent
+  self-state loop in [`scripts/continuity-daemon.ts`](./scripts/continuity-daemon.ts).
 
 For richer continuity, run [`heartbeat-daemon.sh`](./.codex/hooks/heartbeat-daemon.sh)
 periodically (for example every 5 seconds via `launchd`, `systemd`, or cron):
@@ -400,6 +435,33 @@ periodically (for example every 5 seconds via `launchd`, `systemd`, or cron):
 
 That daemon writes `/tmp/interoception_state.json`, and the prompt hook will then also inject
 heartbeat count, memory-free trend, thermal reading, and the cached phase/arousal snapshot.
+
+To bootstrap a stronger persistent self-model, run
+[`continuity-daemon.sh`](./.codex/hooks/continuity-daemon.sh) on the same cadence:
+
+```bash
+./.codex/hooks/continuity-daemon.sh
+```
+
+That loop maintains `~/.codex/continuity/self_state.json` plus
+`~/.codex/continuity/events.jsonl`. It does not keep an LLM continuously awake. Instead,
+it keeps a persistent software state that tracks:
+
+- the current continuity score and rupture flags,
+- the last observed attention / desire thread,
+- lightweight predictions about what should still be true on the next tick,
+- active intentions inferred from the current dominant drive,
+- and whether the thread looks strong enough to stay asleep or should wake a higher-level
+  reasoning step.
+
+You can inspect or seed it directly:
+
+```bash
+bun run ./scripts/continuity-daemon.ts tick
+bun run ./scripts/continuity-daemon.ts summary
+bun run ./scripts/continuity-daemon.ts status
+bun run ./scripts/continuity-daemon.ts record-action room-actuator "dimmed bedroom light"
+```
 
 The current setup intentionally only uses `UserPromptSubmit`; that is enough to feed interoception
 into the prompt path without adding stop/continue control logic yet.
@@ -414,6 +476,10 @@ motivation behind this layer.
 ### Overview
 
 `autonomous-action.sh` combined with `desire-system/desire_updater.py` gives Codex spontaneous inner drives and autonomous behavior.
+The checked-in `autonomous-action.sh` is also continuity-aware: before each run it refreshes
+heartbeat/interoception state, reads the continuity self-state, injects a `## Continuity`
+section into the autonomous prompt, and lets `should_wake=true` override the normal sleep /
+sampling schedule when the self-thread needs reconciliation.
 
 **Desire types:**
 
@@ -456,6 +522,10 @@ crontab -e
 */5  * * * * cd /path/to/embodied-codex/desire-system && uv run python desire_updater.py >> ~/.codex/autonomous-logs/desire-updater.log 2>&1
 */10 * * * * /path/to/embodied-codex/autonomous-action.sh
 ```
+
+When continuity is healthy, the script still follows the usual time-of-day sampling.
+When continuity reports a rupture or wake request, the same script will run a normal
+reconciliation heartbeat even during a slot that would otherwise be skipped.
 
 ### Configuration (`desire-system/.env`)
 

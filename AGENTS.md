@@ -28,7 +28,7 @@ Run commands from the target subproject directory.
 
 ## Testing Guidelines
 - Frameworks: `pytest` + `pytest-asyncio`.
-- Tests live in `memory-mcp/tests/`.
+- Tests live in subproject `tests/` directories (for example `memory-mcp/tests/`, `room-actuator-mcp/tests/`).
 - Example: `cd memory-mcp && uv run pytest`.
 
 ## Configuration, Hardware, and WSL2 Notes
@@ -53,3 +53,11 @@ Run commands from the target subproject directory.
 - 2026-02-07: 記憶システムを「連想発散 + 予測符号化 + 手動統合」に拡張する実装に着手した。
 - 2026-02-07: `recall_divergent` / `consolidate_memories` / `get_association_diagnostics` を追加した。
 - 2026-02-07: `memory-mcp` の全テスト（104件）を通して回帰がないことを確認した。
+- 2026-03-27: `lighting-mcp` を追加し、Home Assistant REST API と Nature Remo Cloud API の両方で部屋の照明を actuator として扱えるようにした。その後、役割に合わせて `room-actuator-mcp` へ改名した。
+- 2026-03-27: `list_lights` / `light_on` / `light_off` / `light_set_brightness` / `light_press_button` / `light_send_signal` を実装し、`room-actuator-mcp` の lint とテストが通った。
+- 2026-03-27: Nature Remo の token と `.env` 設定、MCP 再接続、SSID 変更の切り分けを経て、実機の部屋照明を `room-actuator-mcp` から実際に動かせるところまで到達した。
+- 2026-03-27: `room-actuator-mcp` を空調まで広げ、`list_aircons` / `aircon_status` / `aircon_on` / `aircon_off` / `aircon_set_mode` / `aircon_set_temp` を追加した。Home Assistant の `climate.*` と Nature Remo の `AC` appliance を同じ MCP から扱える。
+- 2026-03-28: `scripts/continuity-daemon.ts` と `.codex/hooks/continuity-daemon.sh` を追加し、外側ループが `~/.codex/continuity/self_state.json` と `events.jsonl` を維持する最小の継続自己レイヤを入れた。
+- 2026-03-28: prompt hook も `[continuity]` 要約を注入するように拡張し、`desire` / `interoception` / `attention` を persistent self-state に束ねる第一歩を source と global hook の両方に反映した。
+- 2026-03-28: `room-actuator-mcp` と `wifi-cam-mcp` の成功した tool call から continuity event を自動記録するようにし、`私が見た / 私が動かした` が `events.jsonl` に自然に積み上がるようにした。
+- 2026-03-28: 実体の `autonomous-action.sh` を作成し、continuity summary を自律プロンプトへ注入、`should_wake=true` のときは通常の時間帯スキップを破って reconciliation heartbeat を起動できるようにした。
