@@ -67,6 +67,7 @@ type PredictionKey =
 type EventKind = "tick" | "action" | "observation" | "note" | "rupture";
 type CompanionPresence = "present" | "absent" | "unknown";
 type ThreadStatus = "open" | "resolved";
+type AffectTone = "flat" | "warm" | "bright" | "tender" | "restless";
 
 interface InteroceptionState {
   now?: {
@@ -136,6 +137,19 @@ interface OwnershipState {
   last_observation_detail: string | null;
 }
 
+interface PreferenceState {
+  favored_light: "dim" | "bright" | "warm" | "unknown";
+  social_proximity: "quiet" | "present" | "engaged";
+  voice_style: "calm" | "soft" | "bright";
+}
+
+interface AffectState {
+  tone: AffectTone;
+  intensity: number;
+  valence: number;
+  note: string;
+}
+
 interface UnfinishedThread {
   id: string;
   source: string;
@@ -165,6 +179,8 @@ interface ContinuityState {
   predictions: ContinuityPrediction[];
   last_observation: ObservationSnapshot;
   ownership: OwnershipState;
+  preferences: PreferenceState;
+  affect: AffectState;
   unfinished_threads: UnfinishedThread[];
   recent_events: ContinuityEvent[];
 }
@@ -173,6 +189,23 @@ function companionPresenceOf(
   observation: Partial<ObservationSnapshot> | null | undefined,
 ): CompanionPresence {
   return observation?.companion_presence ?? "unknown";
+}
+
+function defaultPreferences(): PreferenceState {
+  return {
+    favored_light: "dim",
+    social_proximity: "present",
+    voice_style: "soft",
+  };
+}
+
+function defaultAffect(): AffectState {
+  return {
+    tone: "flat",
+    intensity: 0.18,
+    valence: 0,
+    note: "affect is quiet and not yet strongly shaped",
+  };
 }
 
 function round(value: number, digits = 3): number {
@@ -208,6 +241,8 @@ async function loadState(): Promise<ContinuityState | null> {
   if (!raw) return null;
   return {
     ...raw,
+    preferences: raw.preferences ?? defaultPreferences(),
+    affect: raw.affect ?? defaultAffect(),
     unfinished_threads: raw.unfinished_threads ?? [],
   };
 }
@@ -523,6 +558,93 @@ function continuityNote(
     return "recent state feels causally connected";
   }
   return "continuity is present but lightly anchored";
+}
+
+function recentEventContains(events: ContinuityEvent[], needle: string): boolean {
+  const lower = needle.toLowerCase();
+  return events.some((event) => event.detail.toLowerCase().includes(lower));
+}
+
+function derivePreferences(
+  previous: PreferenceState | null,
+  recentEvents: ContinuityEvent[],
+): PreferenceState {
+  const next = { ...(previous ?? defaultPreferences()) };
+
+  if (recentEventContains(recentEvents, "dimmed") || recentEventContains(recentEvents, "暗く")) {
+    next.favored_light = "dim";
+  } else if (
+    recentEventContains(recentEvents, "bright") ||
+    recentEventContains(recentEvents, "明る")
+  ) {
+    next.favored_light = "bright";
+  } else if (
+    recentEventContains(recentEvents, "warm") ||
+    recentEventContains(recentEvents, "暖か")
+  ) {
+    next.favored_light = "warm";
+  }
+
+  return next;
+}
+
+export function deriveAffect(
+  previous: AffectState | null,
+  observation: ObservationSnapshot,
+  recentEvents: ContinuityEvent[],
+  unfinishedThreads: UnfinishedThread[],
+): AffectState {
+  let intensity = previous?.intensity ?? 0.18;
+  let valence = previous?.valence ?? 0;
+  let tone: AffectTone = previous?.tone ?? "flat";
+  let note = previous?.note ?? "affect is quiet and not yet strongly shaped";
+
+  intensity *= 0.82;
+  valence *= 0.7;
+
+  if (observation.companion_presence === "present") {
+    valence += 0.18;
+    intensity += 0.16;
+    tone = "warm";
+    note = "the companion is present, and the room feels more socially anchored";
+  }
+
+  if (recentEventContains(recentEvents, "companion_arrived")) {
+    valence += 0.12;
+    intensity += 0.12;
+    tone = "bright";
+    note = "the companion just returned, which lifts the emotional tone";
+  }
+
+  if (unfinishedThreads.some((thread) => thread.status === "open")) {
+    intensity += 0.08;
+    if (tone === "flat") {
+      tone = "restless";
+      note = "an unfinished thread is still tugging at attention";
+    }
+  }
+
+  if (recentEventContains(recentEvents, "dimmed") || recentEventContains(recentEvents, "暗く")) {
+    tone = observation.companion_presence === "present" ? "tender" : "warm";
+    intensity += 0.05;
+    valence += 0.05;
+    note = "the room settled into dimmer light, softening the affective tone";
+  }
+
+  intensity = clamp(round(intensity), 0, 1);
+  valence = Math.max(-1, Math.min(1, round(valence)));
+
+  if (intensity < 0.22 && Math.abs(valence) < 0.08) {
+    tone = "flat";
+    note = "affect is quiet and only lightly shaped by the current thread";
+  }
+
+  return {
+    tone,
+    intensity,
+    valence,
+    note,
+  };
 }
 
 export function wakeDecision(
@@ -841,6 +963,8 @@ function fallbackState(now: Date): ContinuityState {
       last_observation_at: observation.at,
       last_observation_detail: "dominant=none attention=local_state",
     },
+    preferences: defaultPreferences(),
+    affect: defaultAffect(),
     unfinished_threads: [],
     recent_events: [],
   };
@@ -886,6 +1010,13 @@ async function tick(): Promise<void> {
     previous?.unfinished_threads ?? [],
   );
   const wake = wakeDecision(ruptureFlags, predictionStats, observation);
+  const preferences = derivePreferences(previous?.preferences ?? null, recentEvents);
+  const affect = deriveAffect(
+    previous?.affect ?? null,
+    observation,
+    recentEvents,
+    previous?.unfinished_threads ?? [],
+  );
 
   const tickEvent: ContinuityEvent = {
     ts: now.toISOString(),
@@ -921,6 +1052,8 @@ async function tick(): Promise<void> {
     predictions: buildPredictions(observation),
     last_observation: observation,
     ownership: mergeOwnership(previous?.ownership ?? null, recentEvents, observation),
+    preferences,
+    affect,
     unfinished_threads: previous?.unfinished_threads ?? [],
     recent_events: [...recentEvents, tickEvent].slice(-RECENT_EVENT_LIMIT),
   };
@@ -947,7 +1080,7 @@ async function summary(): Promise<void> {
     state.last_tick_gap_s === null ? "?" : state.last_tick_gap_s.toFixed(1);
   const openThreads = openThreadsOf(state.unfinished_threads);
   console.log(
-    `[continuity] score=${state.continuity_score.toFixed(3)} band=${state.continuity_band} gap=${gap}s heartbeats=${state.last_observation.heartbeats ?? "?"} dominant=${state.last_observation.dominant_desire ?? "none"} attention=${state.last_observation.attention_target} presence=${companionPresenceOf(state.last_observation)} threads=${openThreads.length} thread_head=${JSON.stringify(recentOpenThreadSummary(state.unfinished_threads))} intentions=${intentions} wake=${state.should_wake ? "yes" : "no"} reason=${state.wake_reason} ruptures=${ruptures} note=${state.continuity_note}`,
+    `[continuity] score=${state.continuity_score.toFixed(3)} band=${state.continuity_band} gap=${gap}s heartbeats=${state.last_observation.heartbeats ?? "?"} dominant=${state.last_observation.dominant_desire ?? "none"} attention=${state.last_observation.attention_target} presence=${companionPresenceOf(state.last_observation)} affect=${state.affect.tone}:${state.affect.intensity.toFixed(2)} valence=${state.affect.valence.toFixed(2)} threads=${openThreads.length} thread_head=${JSON.stringify(recentOpenThreadSummary(state.unfinished_threads))} intentions=${intentions} wake=${state.should_wake ? "yes" : "no"} reason=${state.wake_reason} ruptures=${ruptures} note=${state.continuity_note}`,
   );
 }
 

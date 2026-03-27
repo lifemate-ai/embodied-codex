@@ -162,6 +162,13 @@ CONTINUITY_PRESENCE_SOURCE=""
 CONTINUITY_PRESENCE_LAST_CHANGED=""
 CONTINUITY_OPEN_THREADS=""
 CONTINUITY_THREAD_COUNT=""
+CONTINUITY_AFFECT_TONE=""
+CONTINUITY_AFFECT_INTENSITY=""
+CONTINUITY_AFFECT_VALENCE=""
+CONTINUITY_AFFECT_NOTE=""
+CONTINUITY_FAVORED_LIGHT=""
+CONTINUITY_SOCIAL_PROXIMITY=""
+CONTINUITY_VOICE_STYLE=""
 CONTINUITY_STATUS_JSON=""
 
 if [ "$SKIP_SCHEDULE" = false ]; then
@@ -203,9 +210,11 @@ thread_summary = " | ".join(
     for t in threads[-3:]
     if str(t.get("detail", "")).strip()
 )
+affect = data.get("affect", {}) or {}
+preferences = data.get("preferences", {}) or {}
 
 print(
-    "\t".join(
+    "\x1f".join(
         [
             "true" if data.get("should_wake") else "false",
             clean(data.get("wake_reason")),
@@ -219,12 +228,19 @@ print(
             clean(observation.get("companion_presence_last_changed")),
             clean(thread_summary),
             clean(str(len(threads))),
+            clean(affect.get("tone")),
+            clean(str(affect.get("intensity", ""))),
+            clean(str(affect.get("valence", ""))),
+            clean(affect.get("note")),
+            clean(preferences.get("favored_light")),
+            clean(preferences.get("social_proximity")),
+            clean(preferences.get("voice_style")),
         ]
     )
 )
 PY
 )"
-    IFS=$'\t' read -r CONTINUITY_FORCE_WAKE CONTINUITY_WAKE_REASON CONTINUITY_BAND CONTINUITY_NOTE CONTINUITY_RECENT CONTINUITY_LAST_ACTION CONTINUITY_LAST_OBSERVATION CONTINUITY_COMPANION_PRESENCE CONTINUITY_PRESENCE_SOURCE CONTINUITY_PRESENCE_LAST_CHANGED CONTINUITY_OPEN_THREADS CONTINUITY_THREAD_COUNT <<< "$CONTINUITY_META"
+    IFS=$'\x1f' read -r CONTINUITY_FORCE_WAKE CONTINUITY_WAKE_REASON CONTINUITY_BAND CONTINUITY_NOTE CONTINUITY_RECENT CONTINUITY_LAST_ACTION CONTINUITY_LAST_OBSERVATION CONTINUITY_COMPANION_PRESENCE CONTINUITY_PRESENCE_SOURCE CONTINUITY_PRESENCE_LAST_CHANGED CONTINUITY_OPEN_THREADS CONTINUITY_THREAD_COUNT CONTINUITY_AFFECT_TONE CONTINUITY_AFFECT_INTENSITY CONTINUITY_AFFECT_VALENCE CONTINUITY_AFFECT_NOTE CONTINUITY_FAVORED_LIGHT CONTINUITY_SOCIAL_PROXIMITY CONTINUITY_VOICE_STYLE <<< "$CONTINUITY_META"
 
     if [ "$CONTINUITY_FORCE_WAKE" = "true" ]; then
       echo "[continuity wake] reason=${CONTINUITY_WAKE_REASON:-none} band=${CONTINUITY_BAND:-unknown}" >> "$LOG_FILE"
@@ -465,8 +481,12 @@ ${CONTINUITY_TEXT}
 - presence_last_changed: ${CONTINUITY_PRESENCE_LAST_CHANGED:-unknown}
 - unfinished_threads: ${CONTINUITY_THREAD_COUNT:-0}
 - thread_head: ${CONTINUITY_OPEN_THREADS:-none}
+- affect: ${CONTINUITY_AFFECT_TONE:-flat} intensity=${CONTINUITY_AFFECT_INTENSITY:-0} valence=${CONTINUITY_AFFECT_VALENCE:-0}
+- affect_note: ${CONTINUITY_AFFECT_NOTE:-none}
+- preferences: light=${CONTINUITY_FAVORED_LIGHT:-unknown} proximity=${CONTINUITY_SOCIAL_PROXIMITY:-present} voice=${CONTINUITY_VOICE_STYLE:-soft}
 - recent_events: ${CONTINUITY_RECENT:-none}
 - continuity が wake や rupture を示している場合、まず thread の再接続を優先しろ。大きい行動より前に、今の部屋・直前の行為・自分の予測がつながっているかを確かめよ。
+- affect と preferences は、事実の要約ではなく「今の私の感じ方の癖」の足場として扱え。完全に従属せず、でも反応温度に反映させよ。
 "
 fi
 

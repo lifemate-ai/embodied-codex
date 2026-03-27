@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  deriveAffect,
   normalizePresenceState,
   parseContinuationMarker,
   resolveLatestThread,
@@ -111,5 +112,42 @@ describe("unfinished thread lifecycle", () => {
     );
     expect(resolved[0]?.status).toBe("resolved");
     expect(resolved[0]?.resolved_at).toBe("2026-03-29T12:20:00Z");
+  });
+});
+
+describe("affect derivation", () => {
+  test("presence warms affect and dim light softens it", () => {
+    const affect = deriveAffect(
+      null,
+      {
+        at: "2026-03-29T12:00:00Z",
+        phase: "night",
+        heartbeats: 2,
+        arousal: 0.2,
+        mem_free: 0.5,
+        dominant_desire: null,
+        dominant_level: 0,
+        attention_mode: "maintenance",
+        attention_target: "local_state",
+        action_bias: "stabilize",
+        companion_presence: "present",
+        companion_presence_source: "home-assistant:binary_sensor.bedroom_presence",
+        companion_presence_last_changed: "2026-03-29T11:59:00Z",
+        companion_presence_raw: "on",
+      },
+      [
+        {
+          ts: "2026-03-29T11:58:00Z",
+          kind: "action",
+          source: "room-actuator",
+          detail: "dimmed bedroom light",
+        },
+      ],
+      [],
+    );
+
+    expect(["warm", "tender", "bright"]).toContain(affect.tone);
+    expect(affect.intensity).toBeGreaterThan(0.2);
+    expect(affect.valence).toBeGreaterThan(0);
   });
 });
