@@ -61,3 +61,5 @@ Run commands from the target subproject directory.
 - 2026-03-28: prompt hook も `[continuity]` 要約を注入するように拡張し、`desire` / `interoception` / `attention` を persistent self-state に束ねる第一歩を source と global hook の両方に反映した。
 - 2026-03-28: `room-actuator-mcp` と `wifi-cam-mcp` の成功した tool call から continuity event を自動記録するようにし、`私が見た / 私が動かした` が `events.jsonl` に自然に積み上がるようにした。
 - 2026-03-28: 実体の `autonomous-action.sh` を作成し、continuity summary を自律プロンプトへ注入、`should_wake=true` のときは通常の時間帯スキップを破って reconciliation heartbeat を起動できるようにした。
+- 2026-03-28: continuity が Home Assistant の presence entity も読めるようにし、`HOME_ASSISTANT_PRESENCE_ENTITY_ID` が設定されていれば `companion_presence` を self-state / prompt / wake reason に折り込めるようにした。
+- 2026-03-28: continuity に unfinished thread を追加し、`[CONTINUE: ...]` / `[DONE]` を `sync-last-message` で拾って次回の self-state と自律プロンプトへ持ち越せるようにした。

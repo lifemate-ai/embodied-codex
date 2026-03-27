@@ -1,0 +1,115 @@
+import { describe, expect, test } from "bun:test";
+import {
+  normalizePresenceState,
+  parseContinuationMarker,
+  resolveLatestThread,
+  presenceFlagsForTransition,
+  upsertUnfinishedThread,
+  wakeDecision,
+} from "./continuity-daemon.ts";
+
+describe("normalizePresenceState", () => {
+  test("maps common entity states to present/absent/unknown", () => {
+    expect(normalizePresenceState("on")).toBe("present");
+    expect(normalizePresenceState("occupied")).toBe("present");
+    expect(normalizePresenceState("off")).toBe("absent");
+    expect(normalizePresenceState("clear")).toBe("absent");
+    expect(normalizePresenceState("unavailable")).toBe("unknown");
+  });
+});
+
+describe("presenceFlagsForTransition", () => {
+  test("marks companion arrival and departure", () => {
+    expect(presenceFlagsForTransition("absent", "present", true)).toContain(
+      "companion_arrived",
+    );
+    expect(presenceFlagsForTransition("present", "absent", true)).toContain(
+      "companion_departed",
+    );
+  });
+
+  test("marks unavailable presence when configured but unknown", () => {
+    expect(presenceFlagsForTransition("unknown", "unknown", true)).toContain(
+      "presence_unavailable",
+    );
+  });
+});
+
+describe("wakeDecision", () => {
+  test("presence changes request a reconciliation wake", () => {
+    const wake = wakeDecision(
+      ["companion_arrived"],
+      { missed: 0 },
+      {
+        at: "2026-03-29T12:00:00Z",
+        phase: "day",
+        heartbeats: 1,
+        arousal: 0.2,
+        mem_free: 0.5,
+        dominant_desire: null,
+        dominant_level: 0,
+        attention_mode: "maintenance",
+        attention_target: "local_state",
+        action_bias: "stabilize",
+        companion_presence: "present",
+        companion_presence_source: "home-assistant:binary_sensor.bedroom_presence",
+        companion_presence_last_changed: "2026-03-29T11:59:00Z",
+        companion_presence_raw: "on",
+      },
+    );
+
+    expect(wake).toEqual({
+      shouldWake: true,
+      reason: "presence-change",
+    });
+  });
+});
+
+describe("unfinished thread parsing", () => {
+  test("extracts the last CONTINUE marker", () => {
+    expect(
+      parseContinuationMarker("something\n[CONTINUE: check bedroom presence mapping]"),
+    ).toEqual({
+      kind: "continue",
+      detail: "check bedroom presence mapping",
+    });
+  });
+
+  test("extracts DONE marker", () => {
+    expect(parseContinuationMarker("all clear\n[DONE]")).toEqual({
+      kind: "done",
+    });
+  });
+});
+
+describe("unfinished thread lifecycle", () => {
+  test("opens, refreshes, and resolves a thread", () => {
+    const opened = upsertUnfinishedThread(
+      [],
+      "heartbeat",
+      "remember to connect Home Assistant presence",
+      "2026-03-29T12:00:00Z",
+    );
+    expect(opened).toHaveLength(1);
+    expect(opened[0]?.continue_count).toBe(1);
+    expect(opened[0]?.status).toBe("open");
+
+    const refreshed = upsertUnfinishedThread(
+      opened,
+      "heartbeat",
+      "remember to connect Home Assistant presence",
+      "2026-03-29T12:10:00Z",
+    );
+    expect(refreshed[0]?.continue_count).toBe(2);
+    expect(refreshed[0]?.updated_at).toBe("2026-03-29T12:10:00Z");
+
+    const resolved = resolveLatestThread(
+      refreshed,
+      "heartbeat",
+      "done",
+      "2026-03-29T12:20:00Z",
+    );
+    expect(resolved[0]?.status).toBe("resolved");
+    expect(resolved[0]?.resolved_at).toBe("2026-03-29T12:20:00Z");
+  });
+});

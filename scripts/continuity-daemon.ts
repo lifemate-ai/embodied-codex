@@ -20,6 +20,23 @@ const EVENT_LOG_PATH =
   `${DEFAULT_CONTINUITY_DIR}/events.jsonl`;
 const INTEROCEPTION_STATE_PATH =
   Bun.env.CODEX_INTEROCEPTION_STATE_FILE ?? "/tmp/interoception_state.json";
+
+function envString(value: string | undefined): string {
+  return value?.trim() ?? "";
+}
+
+function homeAssistantUrl(): string {
+  return envString(process.env.HOME_ASSISTANT_URL).replace(/\/+$/, "");
+}
+
+function homeAssistantToken(): string {
+  return envString(process.env.HOME_ASSISTANT_TOKEN);
+}
+
+function homeAssistantPresenceEntityId(): string {
+  return envString(process.env.HOME_ASSISTANT_PRESENCE_ENTITY_ID);
+}
+
 function envNumber(value: string | undefined, fallback: number): number {
   const parsed = value ? Number.parseFloat(value) : Number.NaN;
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -40,9 +57,16 @@ type WakeReason =
   | "cold-start"
   | "continuity-gap"
   | "prediction-miss"
+  | "presence-change"
   | "strong-drive";
-type PredictionKey = "dominant_desire" | "attention_target" | "phase";
+type PredictionKey =
+  | "dominant_desire"
+  | "attention_target"
+  | "phase"
+  | "companion_presence";
 type EventKind = "tick" | "action" | "observation" | "note" | "rupture";
+type CompanionPresence = "present" | "absent" | "unknown";
+type ThreadStatus = "open" | "resolved";
 
 interface InteroceptionState {
   now?: {
@@ -56,6 +80,20 @@ interface InteroceptionState {
   window?: unknown[];
 }
 
+interface HomeAssistantEntityState {
+  entity_id?: string;
+  state?: string;
+  last_changed?: string;
+  attributes?: Record<string, unknown>;
+}
+
+interface PresenceSnapshot {
+  state: CompanionPresence;
+  source: string | null;
+  last_changed: string | null;
+  raw_state: string | null;
+}
+
 interface ObservationSnapshot {
   at: string;
   phase: string | null;
@@ -67,6 +105,10 @@ interface ObservationSnapshot {
   attention_mode: string;
   attention_target: string;
   action_bias: string;
+  companion_presence: CompanionPresence;
+  companion_presence_source: string | null;
+  companion_presence_last_changed: string | null;
+  companion_presence_raw: string | null;
 }
 
 interface ContinuityPrediction {
@@ -94,6 +136,18 @@ interface OwnershipState {
   last_observation_detail: string | null;
 }
 
+interface UnfinishedThread {
+  id: string;
+  source: string;
+  detail: string;
+  status: ThreadStatus;
+  opened_at: string;
+  updated_at: string;
+  continue_count: number;
+  resolved_at: string | null;
+  resolution: string | null;
+}
+
 interface ContinuityState {
   schema_version: "1";
   kind: "continuity-self-state";
@@ -111,7 +165,14 @@ interface ContinuityState {
   predictions: ContinuityPrediction[];
   last_observation: ObservationSnapshot;
   ownership: OwnershipState;
+  unfinished_threads: UnfinishedThread[];
   recent_events: ContinuityEvent[];
+}
+
+function companionPresenceOf(
+  observation: Partial<ObservationSnapshot> | null | undefined,
+): CompanionPresence {
+  return observation?.companion_presence ?? "unknown";
 }
 
 function round(value: number, digits = 3): number {
@@ -143,7 +204,12 @@ async function loadJsonFile<T>(path: string): Promise<T | null> {
 }
 
 async function loadState(): Promise<ContinuityState | null> {
-  return loadJsonFile<ContinuityState>(STATE_PATH);
+  const raw = await loadJsonFile<ContinuityState>(STATE_PATH);
+  if (!raw) return null;
+  return {
+    ...raw,
+    unfinished_threads: raw.unfinished_threads ?? [],
+  };
 }
 
 async function saveState(state: ContinuityState): Promise<void> {
@@ -195,13 +261,99 @@ function defaultObservation(now: Date): ObservationSnapshot {
     attention_mode: "maintenance",
     attention_target: "local_state",
     action_bias: "stabilize",
+    companion_presence: "unknown",
+    companion_presence_source: null,
+    companion_presence_last_changed: null,
+    companion_presence_raw: null,
   };
+}
+
+export function normalizePresenceState(rawState: string | null | undefined): CompanionPresence {
+  const normalized = rawState?.trim().toLowerCase();
+  if (!normalized) return "unknown";
+
+  if (
+    [
+      "on",
+      "home",
+      "occupied",
+      "occupancy",
+      "present",
+      "detected",
+      "true",
+      "open",
+    ].includes(normalized)
+  ) {
+    return "present";
+  }
+
+  if (
+    [
+      "off",
+      "not_home",
+      "clear",
+      "absent",
+      "vacant",
+      "false",
+      "closed",
+      "idle",
+      "none",
+    ].includes(normalized)
+  ) {
+    return "absent";
+  }
+
+  return "unknown";
+}
+
+async function loadHomeAssistantPresence(): Promise<PresenceSnapshot | null> {
+  const url = homeAssistantUrl();
+  const token = homeAssistantToken();
+  const entityId = homeAssistantPresenceEntityId();
+
+  if (!url || !token || !entityId) {
+    return null;
+  }
+
+  try {
+    const response = await fetch(`${url}/api/states/${entityId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      return {
+        state: "unknown",
+        source: `home-assistant:${entityId}`,
+        last_changed: null,
+        raw_state: `http_${response.status}`,
+      };
+    }
+
+    const entity = (await response.json()) as HomeAssistantEntityState;
+    return {
+      state: normalizePresenceState(entity.state ?? null),
+      source: `home-assistant:${entityId}`,
+      last_changed: entity.last_changed ?? null,
+      raw_state: entity.state ?? null,
+    };
+  } catch {
+    return {
+      state: "unknown",
+      source: `home-assistant:${entityId}`,
+      last_changed: null,
+      raw_state: "fetch_error",
+    };
+  }
 }
 
 function extractObservation(
   now: Date,
   interoception: InteroceptionState | null,
   dominant: ReturnType<typeof dominantDesire>,
+  presence: PresenceSnapshot | null,
 ): ObservationSnapshot {
   const base = defaultObservation(now);
   const profile = dominant ? ATTENTION_MAP[dominant.name] : null;
@@ -224,6 +376,12 @@ function extractObservation(
     attention_mode: profile?.mode ?? base.attention_mode,
     attention_target: profile?.target ?? base.attention_target,
     action_bias: profile?.actionBias ?? base.action_bias,
+    companion_presence: presence?.state ?? base.companion_presence,
+    companion_presence_source:
+      presence?.source ?? base.companion_presence_source,
+    companion_presence_last_changed:
+      presence?.last_changed ?? base.companion_presence_last_changed,
+    companion_presence_raw: presence?.raw_state ?? base.companion_presence_raw,
   };
 }
 
@@ -238,6 +396,8 @@ function observedValue(
       return observation.attention_target;
     case "phase":
       return observation.phase;
+    case "companion_presence":
+      return observation.companion_presence;
   }
 }
 
@@ -305,6 +465,17 @@ function buildPredictions(
     });
   }
 
+  if (observation.companion_presence !== "unknown") {
+    predictions.push({
+      key: "companion_presence",
+      expected: observation.companion_presence,
+      confidence: 0.72,
+      source: observation.companion_presence_source ?? "presence_sensor",
+      matched: null,
+      observed: null,
+    });
+  }
+
   return predictions;
 }
 
@@ -322,9 +493,16 @@ function continuityNote(
   ruptureFlags: string[],
   predictionStats: { matched: number; missed: number; total: number },
   score: number,
+  unfinishedThreads: UnfinishedThread[],
 ): string {
   if (ruptureFlags.includes("cold_start")) {
     return "no persisted self-thread yet; continuity is booting from scratch";
+  }
+  if (ruptureFlags.includes("companion_arrived")) {
+    return "the companion's presence returned; re-anchor around the shared room state";
+  }
+  if (ruptureFlags.includes("companion_departed")) {
+    return "the companion left the room; the shared thread needs re-anchoring";
   }
   if (ruptureFlags.includes("continuity_gap")) {
     return "a long silence broke the thread; continuity needs reconciliation";
@@ -338,19 +516,28 @@ function continuityNote(
   if (predictionStats.total > 0 && predictionStats.matched === predictionStats.total) {
     return "recent predictions and observations still line up";
   }
+  if (unfinishedThreads.some((thread) => thread.status === "open")) {
+    return "an unfinished thread is still hanging in working memory";
+  }
   if (score >= 0.7) {
     return "recent state feels causally connected";
   }
   return "continuity is present but lightly anchored";
 }
 
-function wakeDecision(
+export function wakeDecision(
   ruptureFlags: string[],
   predictionStats: { missed: number },
   observation: ObservationSnapshot,
 ): { shouldWake: boolean; reason: WakeReason } {
   if (ruptureFlags.includes("cold_start")) {
     return { shouldWake: true, reason: "cold-start" };
+  }
+  if (
+    ruptureFlags.includes("companion_arrived") ||
+    ruptureFlags.includes("companion_departed")
+  ) {
+    return { shouldWake: true, reason: "presence-change" };
   }
   if (ruptureFlags.includes("continuity_gap")) {
     return { shouldWake: true, reason: "continuity-gap" };
@@ -404,6 +591,13 @@ function updateScore(
     score += 0.04;
   }
 
+  if (
+    companionPresenceOf(previous.last_observation) === observation.companion_presence &&
+    observation.companion_presence !== "unknown"
+  ) {
+    score += 0.04;
+  }
+
   if (predictionStats.total > 0) {
     score += (predictionStats.matched / predictionStats.total) * 0.12;
     score -= (predictionStats.missed / predictionStats.total) * 0.1;
@@ -413,9 +607,44 @@ function updateScore(
   if (ruptureFlags.includes("long_gap")) score -= 0.08;
   if (ruptureFlags.includes("continuity_gap")) score -= 0.15;
   if (ruptureFlags.includes("no_desire_state")) score -= 0.08;
+  if (ruptureFlags.includes("presence_unavailable")) score -= 0.06;
   if (ruptureFlags.includes("prediction_drift")) score -= 0.04;
 
   return round(clamp(score));
+}
+
+export function presenceFlagsForTransition(
+  previousPresence: CompanionPresence,
+  currentPresence: CompanionPresence,
+  presenceConfigured: boolean,
+): string[] {
+  const flags: string[] = [];
+
+  if (presenceConfigured && currentPresence === "unknown") {
+    flags.push("presence_unavailable");
+  }
+
+  if (previousPresence !== currentPresence && currentPresence !== "unknown") {
+    if (currentPresence === "present") {
+      flags.push("companion_arrived");
+    } else if (previousPresence === "present" && currentPresence === "absent") {
+      flags.push("companion_departed");
+    }
+  }
+
+  return flags;
+}
+
+function derivePresenceFlags(
+  previous: ContinuityState | null,
+  observation: ObservationSnapshot,
+  presenceConfigured: boolean,
+): string[] {
+  return presenceFlagsForTransition(
+    companionPresenceOf(previous?.last_observation),
+    observation.companion_presence,
+    presenceConfigured,
+  );
 }
 
 function deriveRuptureFlags(
@@ -423,6 +652,8 @@ function deriveRuptureFlags(
   gapS: number | null,
   desireAvailable: boolean,
   predictionStats: { missed: number },
+  observation: ObservationSnapshot,
+  presenceConfigured: boolean,
 ): string[] {
   const flags: string[] = [];
 
@@ -435,6 +666,7 @@ function deriveRuptureFlags(
 
   if (!desireAvailable) flags.push("no_desire_state");
   if (predictionStats.missed > 0) flags.push("prediction_drift");
+  flags.push(...derivePresenceFlags(previous, observation, presenceConfigured));
 
   return [...new Set(flags)];
 }
@@ -442,6 +674,117 @@ function deriveRuptureFlags(
 function deriveIntentions(dominant: DesireName | null): string[] {
   if (!dominant) return ["stabilize_local_state"];
   return INTENTION_HINTS[dominant];
+}
+
+function withThreadIntentions(
+  intentions: string[],
+  unfinishedThreads: UnfinishedThread[],
+): string[] {
+  const hasOpenThread = unfinishedThreads.some((thread) => thread.status === "open");
+  if (!hasOpenThread) return intentions;
+  return ["continue_unfinished_thread", ...intentions];
+}
+
+function openThreadsOf(threads: UnfinishedThread[]): UnfinishedThread[] {
+  return threads.filter((thread) => thread.status === "open");
+}
+
+export function parseContinuationMarker(
+  text: string,
+): { kind: "continue"; detail: string } | { kind: "done" } | null {
+  const matches = [...text.matchAll(/\[(CONTINUE|DONE)(?::([^\]]+))?\]/g)];
+  const last = matches.at(-1);
+  if (!last) return null;
+
+  if (last[1] === "DONE") {
+    return { kind: "done" };
+  }
+
+  const detail = last[2]?.trim() ?? "";
+  if (!detail) return null;
+  return { kind: "continue", detail };
+}
+
+function threadId(now: string): string {
+  return `thread-${now.replace(/[-:.TZ]/g, "").slice(0, 14)}`;
+}
+
+export function upsertUnfinishedThread(
+  threads: UnfinishedThread[],
+  source: string,
+  detail: string,
+  now: string,
+): UnfinishedThread[] {
+  const normalized = detail.trim();
+  if (!normalized) return threads;
+
+  const existing = [...threads].reverse().find(
+    (thread) =>
+      thread.status === "open" &&
+      thread.source === source &&
+      thread.detail === normalized,
+  );
+
+  if (!existing) {
+    return [
+      ...threads,
+      {
+        id: threadId(now),
+        source,
+        detail: normalized,
+        status: "open",
+        opened_at: now,
+        updated_at: now,
+        continue_count: 1,
+        resolved_at: null,
+        resolution: null,
+      },
+    ];
+  }
+
+  return threads.map((thread) =>
+    thread.id === existing.id
+      ? {
+          ...thread,
+          updated_at: now,
+          continue_count: thread.continue_count + 1,
+        }
+      : thread,
+  );
+}
+
+export function resolveLatestThread(
+  threads: UnfinishedThread[],
+  source: string,
+  resolution: string,
+  now: string,
+): UnfinishedThread[] {
+  const reversed = [...threads].reverse();
+  const target = reversed.find(
+    (thread) => thread.status === "open" && thread.source === source,
+  );
+  if (!target) return threads;
+
+  return threads.map((thread) =>
+    thread.id === target.id
+      ? {
+          ...thread,
+          status: "resolved",
+          updated_at: now,
+          resolved_at: now,
+          resolution: resolution.trim() || "done",
+        }
+      : thread,
+  );
+}
+
+function recentOpenThreadSummary(threads: UnfinishedThread[]): string {
+  const open = openThreadsOf(threads);
+  if (open.length === 0) return "none";
+  return open
+    .slice(-3)
+    .map((thread) => `${thread.detail} (x${thread.continue_count})`)
+    .join(" | ");
 }
 
 function mergeOwnership(
@@ -468,7 +811,7 @@ function mergeOwnership(
   }
 
   next.last_observation_at = observation.at;
-  next.last_observation_detail = `dominant=${observation.dominant_desire ?? "none"} attention=${observation.attention_target}`;
+  next.last_observation_detail = `dominant=${observation.dominant_desire ?? "none"} attention=${observation.attention_target} presence=${observation.companion_presence}`;
 
   return next;
 }
@@ -498,6 +841,7 @@ function fallbackState(now: Date): ContinuityState {
       last_observation_at: observation.at,
       last_observation_detail: "dominant=none attention=local_state",
     },
+    unfinished_threads: [],
     recent_events: [],
   };
 }
@@ -508,8 +852,9 @@ async function tick(): Promise<void> {
   const desireState = await loadDesireState();
   const dominant = desireState ? dominantDesire(desireState) : null;
   const interoception = await loadInteroceptionState();
+  const presence = await loadHomeAssistantPresence();
   const recentEvents = await loadRecentEvents();
-  const observation = extractObservation(now, interoception, dominant);
+  const observation = extractObservation(now, interoception, dominant, presence);
   const previousTick = previous ? parseTimestamp(previous.updated_at) : null;
   const gapS =
     previousTick === null
@@ -524,6 +869,8 @@ async function tick(): Promise<void> {
     gapS,
     desireState !== null,
     predictionStats,
+    observation,
+    Boolean(homeAssistantPresenceEntityId()),
   );
   const score = updateScore(
     previous,
@@ -532,16 +879,25 @@ async function tick(): Promise<void> {
     predictionStats,
     observation,
   );
-  const note = continuityNote(ruptureFlags, predictionStats, score);
+  const note = continuityNote(
+    ruptureFlags,
+    predictionStats,
+    score,
+    previous?.unfinished_threads ?? [],
+  );
   const wake = wakeDecision(ruptureFlags, predictionStats, observation);
 
   const tickEvent: ContinuityEvent = {
     ts: now.toISOString(),
     kind: ruptureFlags.some((flag) => flag.includes("gap") || flag === "cold_start")
       ? "rupture"
-      : "tick",
+      : ruptureFlags.some(
+            (flag) => flag === "companion_arrived" || flag === "companion_departed",
+          )
+        ? "observation"
+        : "tick",
     source: "continuity-daemon",
-    detail: `score=${score.toFixed(3)} dominant=${observation.dominant_desire ?? "none"} attention=${observation.attention_target}`,
+    detail: `score=${score.toFixed(3)} dominant=${observation.dominant_desire ?? "none"} attention=${observation.attention_target} presence=${observation.companion_presence}`,
     continuity_score: score,
   };
 
@@ -558,10 +914,14 @@ async function tick(): Promise<void> {
     rupture_flags: ruptureFlags,
     should_wake: wake.shouldWake,
     wake_reason: wake.reason,
-    active_intentions: deriveIntentions(observation.dominant_desire),
+    active_intentions: withThreadIntentions(
+      deriveIntentions(observation.dominant_desire),
+      previous?.unfinished_threads ?? [],
+    ),
     predictions: buildPredictions(observation),
     last_observation: observation,
     ownership: mergeOwnership(previous?.ownership ?? null, recentEvents, observation),
+    unfinished_threads: previous?.unfinished_threads ?? [],
     recent_events: [...recentEvents, tickEvent].slice(-RECENT_EVENT_LIMIT),
   };
 
@@ -585,8 +945,9 @@ async function summary(): Promise<void> {
       : "none";
   const gap =
     state.last_tick_gap_s === null ? "?" : state.last_tick_gap_s.toFixed(1);
+  const openThreads = openThreadsOf(state.unfinished_threads);
   console.log(
-    `[continuity] score=${state.continuity_score.toFixed(3)} band=${state.continuity_band} gap=${gap}s heartbeats=${state.last_observation.heartbeats ?? "?"} dominant=${state.last_observation.dominant_desire ?? "none"} attention=${state.last_observation.attention_target} intentions=${intentions} wake=${state.should_wake ? "yes" : "no"} reason=${state.wake_reason} ruptures=${ruptures} note=${state.continuity_note}`,
+    `[continuity] score=${state.continuity_score.toFixed(3)} band=${state.continuity_band} gap=${gap}s heartbeats=${state.last_observation.heartbeats ?? "?"} dominant=${state.last_observation.dominant_desire ?? "none"} attention=${state.last_observation.attention_target} presence=${companionPresenceOf(state.last_observation)} threads=${openThreads.length} thread_head=${JSON.stringify(recentOpenThreadSummary(state.unfinished_threads))} intentions=${intentions} wake=${state.should_wake ? "yes" : "no"} reason=${state.wake_reason} ruptures=${ruptures} note=${state.continuity_note}`,
   );
 }
 
@@ -628,12 +989,75 @@ async function recordEvent(
   console.log(JSON.stringify(event, null, 2));
 }
 
+async function setThreads(
+  updater: (threads: UnfinishedThread[], now: string) => UnfinishedThread[],
+  eventDetail: string,
+): Promise<ContinuityState> {
+  const current = (await loadState()) ?? fallbackState(new Date());
+  const now = new Date().toISOString();
+  const event: ContinuityEvent = {
+    ts: now,
+    kind: "note",
+    source: "continuity-daemon",
+    detail: eventDetail,
+  };
+  const unfinishedThreads = updater(current.unfinished_threads, now);
+  const next: ContinuityState = {
+    ...current,
+    updated_at: now,
+    unfinished_threads: unfinishedThreads,
+    recent_events: [...current.recent_events, event].slice(-RECENT_EVENT_LIMIT),
+  };
+  await saveState(next);
+  await appendEvent(event);
+  return next;
+}
+
+async function threadOpen(source: string, detail: string): Promise<void> {
+  const state = await setThreads(
+    (threads, now) => upsertUnfinishedThread(threads, source, detail, now),
+    `opened unfinished thread from ${source}: ${detail}`,
+  );
+  console.log(JSON.stringify(state.unfinished_threads, null, 2));
+}
+
+async function threadResolve(source: string, resolution: string): Promise<void> {
+  const state = await setThreads(
+    (threads, now) => resolveLatestThread(threads, source, resolution, now),
+    `resolved unfinished thread from ${source}: ${resolution || "done"}`,
+  );
+  console.log(JSON.stringify(state.unfinished_threads, null, 2));
+}
+
+async function syncLastMessage(path: string, source: string): Promise<void> {
+  const file = Bun.file(path);
+  if (!(await file.exists())) {
+    console.log(JSON.stringify({ synced: false, reason: "missing-file" }, null, 2));
+    return;
+  }
+
+  const marker = parseContinuationMarker(await file.text());
+  if (!marker) {
+    console.log(JSON.stringify({ synced: false, reason: "no-marker" }, null, 2));
+    return;
+  }
+
+  if (marker.kind === "continue") {
+    await threadOpen(source, marker.detail);
+    return;
+  }
+
+  await threadResolve(source, "done");
+}
+
 function usage(): never {
   console.log(`Usage: bun run scripts/continuity-daemon.ts <command> [args]
 
 Commands:
   tick
       Update continuity self-state from interoception + desire state.
+      If HOME_ASSISTANT_URL / HOME_ASSISTANT_TOKEN / HOME_ASSISTANT_PRESENCE_ENTITY_ID
+      are set, also fold companion presence into the self-thread.
   status
       Print the full persisted self-state as JSON.
   summary
@@ -645,38 +1069,58 @@ Commands:
   record-action <source> <detail...>
       Convenience alias for recording an action event.
   record-observation <source> <detail...>
-      Convenience alias for recording an observation event.`);
+      Convenience alias for recording an observation event.
+  thread-open <source> <detail...>
+      Open or refresh an unfinished thread.
+  thread-resolve <source> [resolution...]
+      Resolve the latest unfinished thread for a source.
+  sync-last-message <path> [source]
+      Parse [CONTINUE: ...] or [DONE] from a saved assistant message and update unfinished threads.`);
   process.exit(1);
 }
 
-const args = process.argv.slice(2);
-const command = args[0];
+if (import.meta.main) {
+  const args = process.argv.slice(2);
+  const command = args[0];
 
-switch (command) {
-  case "tick":
-    await tick();
-    break;
-  case "status":
-    await status();
-    break;
-  case "summary":
-    await summary();
-    break;
-  case "reset":
-    await reset();
-    break;
-  case "record":
-    if (!args[1] || !args[2] || args.length < 4) usage();
-    await recordEvent(args[1] as EventKind, args[2], args.slice(3).join(" "));
-    break;
-  case "record-action":
-    if (!args[1] || args.length < 3) usage();
-    await recordEvent("action", args[1], args.slice(2).join(" "));
-    break;
-  case "record-observation":
-    if (!args[1] || args.length < 3) usage();
-    await recordEvent("observation", args[1], args.slice(2).join(" "));
-    break;
-  default:
-    usage();
+  switch (command) {
+    case "tick":
+      await tick();
+      break;
+    case "status":
+      await status();
+      break;
+    case "summary":
+      await summary();
+      break;
+    case "reset":
+      await reset();
+      break;
+    case "record":
+      if (!args[1] || !args[2] || args.length < 4) usage();
+      await recordEvent(args[1] as EventKind, args[2], args.slice(3).join(" "));
+      break;
+    case "record-action":
+      if (!args[1] || args.length < 3) usage();
+      await recordEvent("action", args[1], args.slice(2).join(" "));
+      break;
+    case "record-observation":
+      if (!args[1] || args.length < 3) usage();
+      await recordEvent("observation", args[1], args.slice(2).join(" "));
+      break;
+    case "thread-open":
+      if (!args[1] || args.length < 3) usage();
+      await threadOpen(args[1], args.slice(2).join(" "));
+      break;
+    case "thread-resolve":
+      if (!args[1]) usage();
+      await threadResolve(args[1], args.slice(2).join(" "));
+      break;
+    case "sync-last-message":
+      if (!args[1]) usage();
+      await syncLastMessage(args[1], args[2] ?? "heartbeat");
+      break;
+    default:
+      usage();
+  }
 }

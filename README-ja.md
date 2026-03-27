@@ -478,6 +478,7 @@ heartbeat 数、`mem_free` のトレンド、thermal、直近の arousal snapsho
 
 - continuity score と rupture flags
 - 直前の attention / desire の線
+- 次回へ持ち越す unfinished thread
 - 次の tick でも成り立つはずだという軽い予測
 - 今の dominant drive から導かれる active intentions
 - そのまま眠っていてよいか、上位の reasoning step を起こすべきか
@@ -492,7 +493,25 @@ bun run ./scripts/continuity-daemon.ts tick
 bun run ./scripts/continuity-daemon.ts summary
 bun run ./scripts/continuity-daemon.ts status
 bun run ./scripts/continuity-daemon.ts record-action room-actuator "寝室の照明を少し暗くした"
+bun run ./scripts/continuity-daemon.ts thread-open heartbeat "Home Assistant presence をつなぐ"
+bun run ./scripts/continuity-daemon.ts sync-last-message ~/.codex/autonomous-logs/latest.last-message.txt heartbeat
 ```
+
+Home Assistant 由来の在室状態を continuity に取り込みたい場合は、以下を設定します。
+
+```bash
+export HOME_ASSISTANT_URL="http://homeassistant.local:8123"
+export HOME_ASSISTANT_TOKEN="your-long-lived-access-token"
+export HOME_ASSISTANT_PRESENCE_ENTITY_ID="binary_sensor.bedroom_presence"
+```
+
+これらが入っていると、各 `tick` が entity state を `self_state.json` に折り込み、
+`[continuity]` 要約にも `presence=<present|absent|unknown>` を出し、
+presence の変化は reconciliation wake の理由として扱われます。
+
+continuity 層は unfinished thread も保持できます。`thread-open` /
+`thread-resolve` で直接更新でき、`sync-last-message` は assistant の出力から
+`[CONTINUE: ...]` や `[DONE]` を拾って、次回の self-state へ持ち越します。
 
 今の構成ではあえて `UserPromptSubmit` だけを使っています。現在時刻や身体状態を prompt
 経路に流し込むには、それで十分やからです。

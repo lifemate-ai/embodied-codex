@@ -449,6 +449,7 @@ it keeps a persistent software state that tracks:
 
 - the current continuity score and rupture flags,
 - the last observed attention / desire thread,
+- unresolved "unfinished threads" that should carry into the next self-step,
 - lightweight predictions about what should still be true on the next tick,
 - active intentions inferred from the current dominant drive,
 - and whether the thread looks strong enough to stay asleep or should wake a higher-level
@@ -461,7 +462,25 @@ bun run ./scripts/continuity-daemon.ts tick
 bun run ./scripts/continuity-daemon.ts summary
 bun run ./scripts/continuity-daemon.ts status
 bun run ./scripts/continuity-daemon.ts record-action room-actuator "dimmed bedroom light"
+bun run ./scripts/continuity-daemon.ts thread-open heartbeat "connect Home Assistant presence"
+bun run ./scripts/continuity-daemon.ts sync-last-message ~/.codex/autonomous-logs/latest.last-message.txt heartbeat
 ```
+
+If you want continuity to absorb room-level companion presence from Home Assistant, set:
+
+```bash
+export HOME_ASSISTANT_URL="http://homeassistant.local:8123"
+export HOME_ASSISTANT_TOKEN="your-long-lived-access-token"
+export HOME_ASSISTANT_PRESENCE_ENTITY_ID="binary_sensor.bedroom_presence"
+```
+
+When these are present, each `tick` folds the entity into `self_state.json`, includes
+`presence=<present|absent|unknown>` in the `[continuity]` summary, and lets presence
+changes request a reconciliation wake.
+
+The continuity layer can also persist unfinished threads. `thread-open` / `thread-resolve`
+update them directly, and `sync-last-message` extracts `[CONTINUE: ...]` or `[DONE]` from
+an assistant message so autonomous heartbeats can carry unfinished intentions forward.
 
 The current setup intentionally only uses `UserPromptSubmit`; that is enough to feed interoception
 into the prompt path without adding stop/continue control logic yet.

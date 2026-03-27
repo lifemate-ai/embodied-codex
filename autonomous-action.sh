@@ -157,6 +157,11 @@ CONTINUITY_NOTE=""
 CONTINUITY_RECENT=""
 CONTINUITY_LAST_ACTION=""
 CONTINUITY_LAST_OBSERVATION=""
+CONTINUITY_COMPANION_PRESENCE=""
+CONTINUITY_PRESENCE_SOURCE=""
+CONTINUITY_PRESENCE_LAST_CHANGED=""
+CONTINUITY_OPEN_THREADS=""
+CONTINUITY_THREAD_COUNT=""
 CONTINUITY_STATUS_JSON=""
 
 if [ "$SKIP_SCHEDULE" = false ]; then
@@ -191,6 +196,13 @@ for event in data.get("recent_events", [])[-3:]:
     recent.append(f"{kind}:{detail}" if detail else kind)
 
 ownership = data.get("ownership", {}) or {}
+observation = data.get("last_observation", {}) or {}
+threads = [t for t in data.get("unfinished_threads", []) if t.get("status") == "open"]
+thread_summary = " | ".join(
+    f"{str(t.get('detail', '')).strip()} (x{int(t.get('continue_count', 1) or 1)})"
+    for t in threads[-3:]
+    if str(t.get("detail", "")).strip()
+)
 
 print(
     "\t".join(
@@ -202,12 +214,17 @@ print(
             clean(" | ".join(recent)),
             clean(ownership.get("last_action_detail")),
             clean(ownership.get("last_observation_detail")),
+            clean(observation.get("companion_presence")),
+            clean(observation.get("companion_presence_source")),
+            clean(observation.get("companion_presence_last_changed")),
+            clean(thread_summary),
+            clean(str(len(threads))),
         ]
     )
 )
 PY
 )"
-    IFS=$'\t' read -r CONTINUITY_FORCE_WAKE CONTINUITY_WAKE_REASON CONTINUITY_BAND CONTINUITY_NOTE CONTINUITY_RECENT CONTINUITY_LAST_ACTION CONTINUITY_LAST_OBSERVATION <<< "$CONTINUITY_META"
+    IFS=$'\t' read -r CONTINUITY_FORCE_WAKE CONTINUITY_WAKE_REASON CONTINUITY_BAND CONTINUITY_NOTE CONTINUITY_RECENT CONTINUITY_LAST_ACTION CONTINUITY_LAST_OBSERVATION CONTINUITY_COMPANION_PRESENCE CONTINUITY_PRESENCE_SOURCE CONTINUITY_PRESENCE_LAST_CHANGED CONTINUITY_OPEN_THREADS CONTINUITY_THREAD_COUNT <<< "$CONTINUITY_META"
 
     if [ "$CONTINUITY_FORCE_WAKE" = "true" ]; then
       echo "[continuity wake] reason=${CONTINUITY_WAKE_REASON:-none} band=${CONTINUITY_BAND:-unknown}" >> "$LOG_FILE"
@@ -443,6 +460,11 @@ if [ -n "$CONTINUITY_TEXT" ]; then
 ${CONTINUITY_TEXT}
 - last_action: ${CONTINUITY_LAST_ACTION:-none}
 - last_observation: ${CONTINUITY_LAST_OBSERVATION:-none}
+- companion_presence: ${CONTINUITY_COMPANION_PRESENCE:-unknown}
+- presence_source: ${CONTINUITY_PRESENCE_SOURCE:-none}
+- presence_last_changed: ${CONTINUITY_PRESENCE_LAST_CHANGED:-unknown}
+- unfinished_threads: ${CONTINUITY_THREAD_COUNT:-0}
+- thread_head: ${CONTINUITY_OPEN_THREADS:-none}
 - recent_events: ${CONTINUITY_RECENT:-none}
 - continuity が wake や rupture を示している場合、まず thread の再接続を優先しろ。大きい行動より前に、今の部屋・直前の行為・自分の予測がつながっているかを確かめよ。
 "
@@ -578,6 +600,7 @@ PY
     if [ -f "$CODEX_LAST_MESSAGE_FILE" ]; then
       echo "--- last message ---" >> "$LOG_FILE"
       cat "$CODEX_LAST_MESSAGE_FILE" >> "$LOG_FILE"
+      bun run "$SCRIPT_DIR/scripts/continuity-daemon.ts" sync-last-message "$CODEX_LAST_MESSAGE_FILE" heartbeat >> "$LOG_FILE" 2>&1 || true
     fi
   }
 
@@ -611,6 +634,7 @@ PY
       if [ -f "$CODEX_LAST_MESSAGE_FILE" ]; then
         echo "--- last message ---" >> "$LOG_FILE"
         cat "$CODEX_LAST_MESSAGE_FILE" >> "$LOG_FILE"
+        bun run "$SCRIPT_DIR/scripts/continuity-daemon.ts" sync-last-message "$CODEX_LAST_MESSAGE_FILE" heartbeat >> "$LOG_FILE" 2>&1 || true
       fi
     fi
   else
