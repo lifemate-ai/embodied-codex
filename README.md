@@ -363,7 +363,9 @@ See `wifi-cam-mcp/README.md` for stereo vision / right eye tools.
 | `light_press_button` | Press a backend-specific button (especially useful for Nature Remo IR lights) |
 | `list_light_signals` / `light_send_signal` | List/send learned Nature Remo signals |
 | `list_aircons` | List available air conditioners and capabilities |
+| `list_room_sensors` | List readable room sensors and available metrics |
 | `aircon_status` | Get current air conditioner status |
+| `room_sensor_status` | Get current room sensor readings |
 | `aircon_on` / `aircon_off` | Power an air conditioner on or off |
 | `aircon_set_mode` | Set air conditioner mode |
 | `aircon_set_temp` | Set air conditioner target temperature |
@@ -477,6 +479,21 @@ export HOME_ASSISTANT_PRESENCE_ENTITY_ID="binary_sensor.bedroom_presence"
 When these are present, each `tick` folds the entity into `self_state.json`, includes
 `presence=<present|absent|unknown>` in the `[continuity]` summary, and lets presence
 changes request a reconciliation wake.
+
+If you also want continuity to absorb ambient room state from Nature Remo, set:
+
+```bash
+export NATURE_REMO_ACCESS_TOKEN="your-oauth-access-token"
+# Optional: force a specific device instead of auto-picking the bedroom-like one
+export NATURE_REMO_ROOM_SENSOR_ID="1W320110002615"
+# or
+export NATURE_REMO_ROOM_SENSOR_NAME="寝室"
+```
+
+If those variables are not exported globally, the continuity daemon also falls back to
+[`room-actuator-mcp/.env`](./room-actuator-mcp/.env). Each `tick` then folds
+temperature / humidity / illuminance / motion into `self_state.json` and the injected
+`## Continuity` section.
 
 The continuity layer can also persist unfinished threads. `thread-open` / `thread-resolve`
 update them directly, and `sync-last-message` extracts `[CONTINUE: ...]` or `[DONE]` from

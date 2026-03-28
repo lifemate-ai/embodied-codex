@@ -479,3 +479,106 @@ def test_nature_remo_set_brightness_is_not_supported():
 
     with pytest.raises(UnsupportedOperationError):
         backend.set_brightness("appliance-1", 50)
+
+
+def test_nature_remo_list_room_sensors_exposes_available_metrics():
+    session = FakeSession(
+        [
+            FakeResponse(
+                json_data=[
+                    {
+                        "name": "Bedroom",
+                        "serial_number": "remo-1",
+                        "newest_events": {
+                            "te": {"val": 26.8, "created_at": "2026-03-28T00:19:03Z"},
+                            "hu": {"val": 34, "created_at": "2026-03-27T23:58:01Z"},
+                            "il": {"val": 87, "created_at": "2026-03-27T23:59:59Z"},
+                            "mo": {"val": 1, "created_at": "2026-03-27T18:08:56Z"},
+                        },
+                    },
+                    {
+                        "name": "Living",
+                        "serial_number": "remo-2",
+                        "newest_events": {
+                            "te": {"val": 22.5, "created_at": "2026-03-28T00:10:00Z"},
+                        },
+                    },
+                    {
+                        "name": "Broken",
+                        "serial_number": "remo-3",
+                        "newest_events": {},
+                    },
+                ]
+            )
+        ]
+    )
+    backend = NatureRemoLightingBackend(
+        NatureRemoConfig(access_token="token"),
+        session=session,
+    )
+
+    sensors = backend.list_room_sensors()
+
+    assert sensors == [
+        {
+            "id": "remo-1",
+            "name": "Bedroom",
+            "provider": "nature_remo",
+            "available_metrics": [
+                "temperature_c",
+                "humidity_pct",
+                "illuminance",
+                "motion",
+            ],
+        },
+        {
+            "id": "remo-2",
+            "name": "Living",
+            "provider": "nature_remo",
+            "available_metrics": ["temperature_c"],
+        },
+    ]
+
+
+def test_nature_remo_room_sensor_status_reads_environment_values():
+    session = FakeSession(
+        [
+            FakeResponse(
+                json_data=[
+                    {
+                        "name": "Bedroom",
+                        "serial_number": "remo-1",
+                        "newest_events": {
+                            "te": {"val": 26.8, "created_at": "2026-03-28T00:19:03Z"},
+                            "hu": {"val": 34, "created_at": "2026-03-27T23:58:01Z"},
+                            "il": {"val": 87, "created_at": "2026-03-27T23:59:59Z"},
+                            "mo": {"val": 1, "created_at": "2026-03-27T18:08:56Z"},
+                        },
+                    }
+                ]
+            )
+        ]
+    )
+    backend = NatureRemoLightingBackend(
+        NatureRemoConfig(access_token="token"),
+        session=session,
+    )
+
+    status = backend.get_room_sensor_status("remo-1")
+
+    assert status == {
+        "id": "remo-1",
+        "name": "Bedroom",
+        "provider": "nature_remo",
+        "temperature_c": 26.8,
+        "humidity_pct": 34,
+        "illuminance": 87,
+        "motion": True,
+        "updated_at": "2026-03-28T00:19:03Z",
+        "raw": {
+            "te": {"val": 26.8, "created_at": "2026-03-28T00:19:03Z"},
+            "hu": {"val": 34, "created_at": "2026-03-27T23:58:01Z"},
+            "il": {"val": 87, "created_at": "2026-03-27T23:59:59Z"},
+            "mo": {"val": 1, "created_at": "2026-03-27T18:08:56Z"},
+        },
+    }

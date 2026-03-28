@@ -43,6 +43,8 @@ CONTINUITY_OBSERVATION_TOOLS = {
     "list_light_signals",
     "list_aircons",
     "aircon_status",
+    "list_room_sensors",
+    "room_sensor_status",
 }
 
 
@@ -102,6 +104,18 @@ class LightingMCPServer:
             parts.append(f"target={target}{unit}")
         return " ".join(parts)
 
+    def _format_room_sensor_status(self, status: dict[str, Any]) -> str:
+        parts = [f"id={status.get('id', '?')}"]
+        if status.get("temperature_c") is not None:
+            parts.append(f"temp={status['temperature_c']}C")
+        if status.get("humidity_pct") is not None:
+            parts.append(f"humidity={status['humidity_pct']}%")
+        if status.get("illuminance") is not None:
+            parts.append(f"illuminance={status['illuminance']}")
+        if status.get("motion") is not None:
+            parts.append(f"motion={'on' if status['motion'] else 'off'}")
+        return " ".join(parts)
+
     def _continuity_event_for_tool(
         self,
         name: str,
@@ -127,6 +141,13 @@ class LightingMCPServer:
             return ("record-observation", f"list_aircons count={len(result)}")
         if name == "aircon_status" and isinstance(result, dict):
             return ("record-observation", f"aircon_status {self._format_aircon_status(result)}")
+        if name == "list_room_sensors" and isinstance(result, list):
+            return ("record-observation", f"list_room_sensors count={len(result)}")
+        if name == "room_sensor_status" and isinstance(result, dict):
+            return (
+                "record-observation",
+                f"room_sensor_status {self._format_room_sensor_status(result)}",
+            )
 
         detail_parts = [name]
         target_id = (
@@ -359,6 +380,36 @@ class LightingMCPServer:
                     },
                 ),
                 Tool(
+                    name="list_room_sensors",
+                    description=(
+                        "List available room sensors such as temperature, humidity, "
+                        "illuminance, or motion. Unsupported on some backends."
+                    ),
+                    inputSchema={
+                        "type": "object",
+                        "properties": {},
+                        "required": [],
+                    },
+                ),
+                Tool(
+                    name="room_sensor_status",
+                    description=(
+                        "Get the current status of a room sensor. Unsupported on some backends."
+                    ),
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "sensor_id": {
+                                "type": "string",
+                                "description": (
+                                    "The room sensor ID returned by list_room_sensors."
+                                ),
+                            }
+                        },
+                        "required": ["sensor_id"],
+                    },
+                ),
+                Tool(
                     name="list_aircons",
                     description=(
                         "List available air conditioners or climate actuators. "
@@ -515,6 +566,13 @@ class LightingMCPServer:
                     )
                 elif name == "list_aircons":
                     result = await asyncio.to_thread(backend.list_aircons)
+                elif name == "list_room_sensors":
+                    result = await asyncio.to_thread(backend.list_room_sensors)
+                elif name == "room_sensor_status":
+                    result = await asyncio.to_thread(
+                        backend.get_room_sensor_status,
+                        arguments["sensor_id"],
+                    )
                 elif name == "aircon_status":
                     result = await asyncio.to_thread(
                         backend.get_aircon_status,

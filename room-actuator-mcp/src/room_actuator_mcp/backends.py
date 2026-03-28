@@ -9,7 +9,14 @@ from typing import Any
 import requests
 
 from .config import HomeAssistantConfig, NatureRemoConfig
-from .models import AirconStatus, AirconSummary, LightStatus, LightSummary
+from .models import (
+    AirconStatus,
+    AirconSummary,
+    LightStatus,
+    LightSummary,
+    RoomSensorStatus,
+    RoomSensorSummary,
+)
 
 REQUEST_TIMEOUT_SECONDS = 10
 
@@ -32,6 +39,10 @@ class SignalNotFoundError(LightingError):
 
 class AirconNotFoundError(LightingError):
     """Raised when a requested air conditioner cannot be found."""
+
+
+class RoomSensorNotFoundError(LightingError):
+    """Raised when a requested room sensor cannot be found."""
 
 
 class LightingBackend(ABC):
@@ -96,6 +107,12 @@ class LightingBackend(ABC):
 
     def send_signal(self, signal_id: str) -> dict[str, Any]:
         raise UnsupportedOperationError("Current backend does not support sending learned signals.")
+
+    def list_room_sensors(self) -> list[dict[str, Any]]:
+        raise UnsupportedOperationError("Current backend does not expose room sensors.")
+
+    def get_room_sensor_status(self, sensor_id: str) -> dict[str, Any]:
+        raise UnsupportedOperationError("Current backend does not expose room sensors.")
 
 
 def _normalize_pct(value: int) -> int:
@@ -427,6 +444,12 @@ class NatureRemoLightingBackend(LightingBackend):
             raise LightingError("Nature Remo returned an unexpected appliances payload.")
         return appliances
 
+    def _fetch_devices(self) -> list[dict[str, Any]]:
+        devices = self._request("GET", "/1/devices")
+        if not isinstance(devices, list):
+            raise LightingError("Nature Remo returned an unexpected devices payload.")
+        return devices
+
     def _find_appliance(self, light_id: str) -> dict[str, Any]:
         for appliance in self._fetch_appliances():
             if appliance.get("id") == light_id and appliance.get("light") is not None:
@@ -438,6 +461,84 @@ class NatureRemoLightingBackend(LightingBackend):
             if appliance.get("id") == aircon_id and appliance.get("type") == "AC":
                 return appliance
         raise AirconNotFoundError(f"Nature Remo air conditioner not found: {aircon_id}")
+
+    def _find_device(self, sensor_id: str) -> dict[str, Any]:
+        for device in self._fetch_devices():
+            if device.get("serial_number") == sensor_id:
+                return device
+        raise RoomSensorNotFoundError(f"Nature Remo room sensor not found: {sensor_id}")
+
+    def _device_metric_value(self, device: dict[str, Any], key: str) -> Any:
+        newest_events = device.get("newest_events") or {}
+        if not isinstance(newest_events, dict):
+            return None
+        event = newest_events.get(key) or {}
+        if not isinstance(event, dict):
+            return None
+        return _coerce_scalar(event.get("val"))
+
+    def _device_metric_timestamp(self, device: dict[str, Any], key: str) -> str | None:
+        newest_events = device.get("newest_events") or {}
+        if not isinstance(newest_events, dict):
+            return None
+        event = newest_events.get(key) or {}
+        if not isinstance(event, dict):
+            return None
+        created_at = event.get("created_at")
+        return str(created_at) if created_at else None
+
+    def _device_available_metrics(self, device: dict[str, Any]) -> list[str]:
+        newest_events = device.get("newest_events") or {}
+        if not isinstance(newest_events, dict):
+            return []
+        available: list[str] = []
+        if "te" in newest_events:
+            available.append("temperature_c")
+        if "hu" in newest_events:
+            available.append("humidity_pct")
+        if "il" in newest_events:
+            available.append("illuminance")
+        if "mo" in newest_events:
+            available.append("motion")
+        return available
+
+    def _room_sensor_summary(self, device: dict[str, Any]) -> dict[str, Any]:
+        sensor_id = device.get("serial_number")
+        if not sensor_id:
+            raise LightingError("Nature Remo device is missing a serial number.")
+        return RoomSensorSummary(
+            id=sensor_id,
+            name=device.get("name", sensor_id),
+            provider=self.provider_name,
+            available_metrics=self._device_available_metrics(device),
+        ).to_dict()
+
+    def _room_sensor_status(self, device: dict[str, Any]) -> dict[str, Any]:
+        sensor_id = device.get("serial_number")
+        if not sensor_id:
+            raise LightingError("Nature Remo device is missing a serial number.")
+        timestamps = [
+            timestamp
+            for timestamp in (
+                self._device_metric_timestamp(device, "te"),
+                self._device_metric_timestamp(device, "hu"),
+                self._device_metric_timestamp(device, "il"),
+                self._device_metric_timestamp(device, "mo"),
+            )
+            if timestamp
+        ]
+        motion_value = self._device_metric_value(device, "mo")
+        return RoomSensorStatus(
+            id=sensor_id,
+            name=device.get("name", sensor_id),
+            provider=self.provider_name,
+            temperature_c=self._device_metric_value(device, "te"),
+            humidity_pct=self._device_metric_value(device, "hu"),
+            illuminance=self._device_metric_value(device, "il"),
+            motion=bool(motion_value) if motion_value is not None else None,
+            updated_at=max(timestamps) if timestamps else None,
+            raw=device.get("newest_events") or {},
+        ).to_dict()
 
     def _button_names(self, appliance: dict[str, Any]) -> list[str]:
         buttons = appliance.get("light", {}).get("buttons") or []
@@ -781,6 +882,22 @@ class NatureRemoLightingBackend(LightingBackend):
     def get_aircon_status(self, aircon_id: str) -> dict[str, Any]:
         appliance = self._find_aircon(aircon_id)
         return self._aircon_status_from_appliance(appliance)
+
+    def list_room_sensors(self) -> list[dict[str, Any]]:
+        sensors: list[dict[str, Any]] = []
+        for device in self._fetch_devices():
+            sensor_id = device.get("serial_number")
+            if not sensor_id:
+                continue
+            available_metrics = self._device_available_metrics(device)
+            if not available_metrics:
+                continue
+            sensors.append(self._room_sensor_summary(device))
+        return sorted(sensors, key=lambda item: item["id"])
+
+    def get_room_sensor_status(self, sensor_id: str) -> dict[str, Any]:
+        device = self._find_device(sensor_id)
+        return self._room_sensor_status(device)
 
     def turn_aircon_on(self, aircon_id: str) -> dict[str, Any]:
         result = self._update_aircon(aircon_id, button="")

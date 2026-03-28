@@ -5,7 +5,7 @@ An MCP server that gives Codex simple room-environment actuation.
 Current backends:
 
 - **Home Assistant** via the official REST API
-- **Nature Remo Cloud API** for IR light appliances, air conditioners, and learned signals
+- **Nature Remo Cloud API** for IR light appliances, air conditioners, learned signals, and built-in room sensors
 
 This is meant to be a first "hand"-like actuator surface: change the room, then use `see` to observe the result.
 
@@ -21,7 +21,9 @@ This is meant to be a first "hand"-like actuator surface: change the room, then 
 | `list_light_signals` | List learned Nature Remo signals for a light |
 | `light_send_signal` | Send a learned Nature Remo signal by ID |
 | `list_aircons` | List available air conditioners and capabilities |
+| `list_room_sensors` | List available room sensors and exposed metrics |
 | `aircon_status` | Read current air conditioner status |
+| `room_sensor_status` | Read current room sensor values |
 | `aircon_on` / `aircon_off` | Power an air conditioner on or off |
 | `aircon_set_mode` | Set air conditioner mode |
 | `aircon_set_temp` | Set air conditioner target temperature |
@@ -60,7 +62,7 @@ NATURE_REMO_API_BASE_URL=https://api.nature.global
 `LIGHTING_BACKEND` is still accepted as a compatibility fallback, but new setups should use
 `ROOM_ACTUATOR_BACKEND`.
 
-The current implementation uses the **cloud** API. That is enough to drive real IR light appliances, air conditioners, and learned signals, but it is still one-way IR control, so the camera should verify the result.
+The current implementation uses the **cloud** API. That is enough to drive real IR light appliances, air conditioners, learned signals, and built-in room sensor readings, but IR control is still one-way, so the camera should verify actuator results.
 
 Nature's developer docs also expose a Local API reference for same-LAN access, but that is **not implemented here yet**.
 
@@ -93,6 +95,8 @@ codex mcp add room-actuator \
 - "Press the night button on the room light"
 - "Send the learned warm-light signal"
 - "List the air conditioners you can control"
+- "List the room sensors you can read"
+- "Read the bedroom sensor status"
 - "Turn on the bedroom air conditioner"
 - "Set the bedroom air conditioner to warm mode"
 - "Set the bedroom air conditioner to 23 degrees"

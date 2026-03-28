@@ -134,6 +134,15 @@ describe("affect derivation", () => {
         companion_presence_source: "home-assistant:binary_sensor.bedroom_presence",
         companion_presence_last_changed: "2026-03-29T11:59:00Z",
         companion_presence_raw: "on",
+        room_sensor_id: "remo-bedroom",
+        room_sensor_name: "Bedroom",
+        room_sensor_source: "nature-remo",
+        room_sensor_temperature_c: 24.2,
+        room_sensor_humidity_pct: 38,
+        room_sensor_illuminance: 90,
+        room_sensor_motion: true,
+        room_sensor_updated_at: "2026-03-29T11:59:30Z",
+        room_sensor_raw: "te,hu,il,mo",
       },
       [
         {
@@ -149,5 +158,42 @@ describe("affect derivation", () => {
     expect(["warm", "tender", "bright"]).toContain(affect.tone);
     expect(affect.intensity).toBeGreaterThan(0.2);
     expect(affect.valence).toBeGreaterThan(0);
+  });
+
+  test("warm room and motion can make affect restless even without confirmed presence", () => {
+    const affect = deriveAffect(
+      null,
+      {
+        at: "2026-03-29T12:00:00Z",
+        phase: "day",
+        heartbeats: 2,
+        arousal: 0.2,
+        mem_free: 0.5,
+        dominant_desire: null,
+        dominant_level: 0,
+        attention_mode: "maintenance",
+        attention_target: "local_state",
+        action_bias: "stabilize",
+        companion_presence: "unknown",
+        companion_presence_source: null,
+        companion_presence_last_changed: null,
+        companion_presence_raw: null,
+        room_sensor_id: "remo-bedroom",
+        room_sensor_name: "Bedroom",
+        room_sensor_source: "nature-remo",
+        room_sensor_temperature_c: 28.4,
+        room_sensor_humidity_pct: 40,
+        room_sensor_illuminance: 120,
+        room_sensor_motion: true,
+        room_sensor_updated_at: "2026-03-29T11:59:30Z",
+        room_sensor_raw: "te,hu,il,mo",
+      },
+      [],
+      [],
+    );
+
+    expect(["restless", "warm"]).toContain(affect.tone);
+    expect(affect.intensity).toBeGreaterThan(0.2);
+    expect(affect.note.length).toBeGreaterThan(0);
   });
 });

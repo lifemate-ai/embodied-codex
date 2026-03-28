@@ -7,6 +7,57 @@ from typing import Any
 
 
 @dataclass(frozen=True)
+class RoomSensorSummary:
+    id: str
+    name: str
+    provider: str
+    available_metrics: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        data: dict[str, Any] = {
+            "id": self.id,
+            "name": self.name,
+            "provider": self.provider,
+        }
+        if self.available_metrics:
+            data["available_metrics"] = list(self.available_metrics)
+        return data
+
+
+@dataclass(frozen=True)
+class RoomSensorStatus:
+    id: str
+    name: str
+    provider: str
+    temperature_c: int | float | None = None
+    humidity_pct: int | float | None = None
+    illuminance: int | float | None = None
+    motion: bool | None = None
+    updated_at: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        data: dict[str, Any] = {
+            "id": self.id,
+            "name": self.name,
+            "provider": self.provider,
+        }
+        if self.temperature_c is not None:
+            data["temperature_c"] = self.temperature_c
+        if self.humidity_pct is not None:
+            data["humidity_pct"] = self.humidity_pct
+        if self.illuminance is not None:
+            data["illuminance"] = self.illuminance
+        if self.motion is not None:
+            data["motion"] = self.motion
+        if self.updated_at:
+            data["updated_at"] = self.updated_at
+        if self.raw:
+            data["raw"] = dict(self.raw)
+        return data
+
+
+@dataclass(frozen=True)
 class LightSummary:
     id: str
     name: str

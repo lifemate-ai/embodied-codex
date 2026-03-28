@@ -1,4 +1,4 @@
-import { mkdir, appendFile } from "node:fs/promises";
+import { mkdir, appendFile, readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import {
   ATTENTION_MAP,
@@ -20,6 +20,9 @@ const EVENT_LOG_PATH =
   `${DEFAULT_CONTINUITY_DIR}/events.jsonl`;
 const INTEROCEPTION_STATE_PATH =
   Bun.env.CODEX_INTEROCEPTION_STATE_FILE ?? "/tmp/interoception_state.json";
+const ROOM_ACTUATOR_ENV_PATH =
+  Bun.env.CODEX_ROOM_ACTUATOR_ENV_PATH ??
+  `${import.meta.dir}/../room-actuator-mcp/.env`;
 
 function envString(value: string | undefined): string {
   return value?.trim() ?? "";
@@ -35,6 +38,18 @@ function homeAssistantToken(): string {
 
 function homeAssistantPresenceEntityId(): string {
   return envString(process.env.HOME_ASSISTANT_PRESENCE_ENTITY_ID);
+}
+
+function natureRemoRoomSensorId(): string {
+  return envString(
+    process.env.NATURE_REMO_ROOM_SENSOR_ID ?? process.env.CODEX_ROOM_SENSOR_ID,
+  );
+}
+
+function natureRemoRoomSensorName(): string {
+  return envString(
+    process.env.NATURE_REMO_ROOM_SENSOR_NAME ?? process.env.CODEX_ROOM_SENSOR_NAME,
+  );
 }
 
 function envNumber(value: string | undefined, fallback: number): number {
@@ -95,6 +110,29 @@ interface PresenceSnapshot {
   raw_state: string | null;
 }
 
+interface RoomSensorSnapshot {
+  id: string | null;
+  name: string | null;
+  source: string | null;
+  temperature_c: number | null;
+  humidity_pct: number | null;
+  illuminance: number | null;
+  motion: boolean | null;
+  updated_at: string | null;
+  raw_state: string | null;
+}
+
+interface NatureRemoNewestEvent {
+  val?: unknown;
+  created_at?: string;
+}
+
+interface NatureRemoDevice {
+  name?: string;
+  serial_number?: string;
+  newest_events?: Record<string, NatureRemoNewestEvent>;
+}
+
 interface ObservationSnapshot {
   at: string;
   phase: string | null;
@@ -110,6 +148,15 @@ interface ObservationSnapshot {
   companion_presence_source: string | null;
   companion_presence_last_changed: string | null;
   companion_presence_raw: string | null;
+  room_sensor_id: string | null;
+  room_sensor_name: string | null;
+  room_sensor_source: string | null;
+  room_sensor_temperature_c: number | null;
+  room_sensor_humidity_pct: number | null;
+  room_sensor_illuminance: number | null;
+  room_sensor_motion: boolean | null;
+  room_sensor_updated_at: string | null;
+  room_sensor_raw: string | null;
 }
 
 interface ContinuityPrediction {
@@ -300,7 +347,214 @@ function defaultObservation(now: Date): ObservationSnapshot {
     companion_presence_source: null,
     companion_presence_last_changed: null,
     companion_presence_raw: null,
+    room_sensor_id: null,
+    room_sensor_name: null,
+    room_sensor_source: null,
+    room_sensor_temperature_c: null,
+    room_sensor_humidity_pct: null,
+    room_sensor_illuminance: null,
+    room_sensor_motion: null,
+    room_sensor_updated_at: null,
+    room_sensor_raw: null,
   };
+}
+
+let roomActuatorEnvCache: Record<string, string> | null | undefined;
+
+async function loadRoomActuatorEnv(): Promise<Record<string, string> | null> {
+  if (roomActuatorEnvCache !== undefined) {
+    return roomActuatorEnvCache;
+  }
+
+  try {
+    const text = await readFile(ROOM_ACTUATOR_ENV_PATH, "utf8");
+    const env: Record<string, string> = {};
+    for (const rawLine of text.split("\n")) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith("#")) continue;
+      const separator = line.indexOf("=");
+      if (separator <= 0) continue;
+      const key = line.slice(0, separator).trim();
+      let value = line.slice(separator + 1).trim();
+      if (
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
+        value = value.slice(1, -1);
+      }
+      env[key] = value;
+    }
+    roomActuatorEnvCache = env;
+    return env;
+  } catch {
+    roomActuatorEnvCache = null;
+    return null;
+  }
+}
+
+function envValueWithFallback(
+  key: string,
+  fallback: Record<string, string> | null,
+): string {
+  const direct = envString(process.env[key]);
+  if (direct) return direct;
+  return envString(fallback?.[key]);
+}
+
+function coerceNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function coerceMotion(value: unknown): boolean | null {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["1", "on", "true", "present", "occupied", "detected"].includes(normalized)) {
+      return true;
+    }
+    if (["0", "off", "false", "clear", "absent", "none"].includes(normalized)) {
+      return false;
+    }
+  }
+  return null;
+}
+
+function roomSensorMetrics(device: NatureRemoDevice): string[] {
+  const events = device.newest_events ?? {};
+  const metrics: string[] = [];
+  if (events.te) metrics.push("temperature_c");
+  if (events.hu) metrics.push("humidity_pct");
+  if (events.il) metrics.push("illuminance");
+  if (events.mo) metrics.push("motion");
+  return metrics;
+}
+
+function chooseNatureRemoRoomSensor(
+  devices: NatureRemoDevice[],
+  preferredId: string,
+  preferredName: string,
+): NatureRemoDevice | null {
+  const withMetrics = devices.filter((device) => roomSensorMetrics(device).length > 0);
+  if (withMetrics.length === 0) return null;
+
+  if (preferredId) {
+    return withMetrics.find((device) => device.serial_number === preferredId) ?? null;
+  }
+
+  if (preferredName) {
+    return (
+      withMetrics.find((device) => device.name?.trim() === preferredName) ?? null
+    );
+  }
+
+  const bedroomLike = withMetrics.find((device) => {
+    const name = device.name?.trim().toLowerCase() ?? "";
+    return name === "寝室" || name.includes("bedroom");
+  });
+  if (bedroomLike) return bedroomLike;
+
+  const richest = [...withMetrics].sort(
+    (left, right) => roomSensorMetrics(right).length - roomSensorMetrics(left).length,
+  )[0];
+  return richest ?? null;
+}
+
+async function loadNatureRemoRoomSensor(): Promise<RoomSensorSnapshot | null> {
+  const fallbackEnv = await loadRoomActuatorEnv();
+  const accessToken = envValueWithFallback("NATURE_REMO_ACCESS_TOKEN", fallbackEnv);
+  if (!accessToken) {
+    return null;
+  }
+
+  const apiBaseUrl = envValueWithFallback("NATURE_REMO_API_BASE_URL", fallbackEnv)
+    .replace(/\/+$/, "") || "https://api.nature.global";
+  const preferredId =
+    natureRemoRoomSensorId() ||
+    envValueWithFallback("NATURE_REMO_ROOM_SENSOR_ID", fallbackEnv) ||
+    envValueWithFallback("CODEX_ROOM_SENSOR_ID", fallbackEnv);
+  const preferredName =
+    natureRemoRoomSensorName() ||
+    envValueWithFallback("NATURE_REMO_ROOM_SENSOR_NAME", fallbackEnv) ||
+    envValueWithFallback("CODEX_ROOM_SENSOR_NAME", fallbackEnv);
+
+  try {
+    const response = await fetch(`${apiBaseUrl}/1/devices`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      return {
+        id: preferredId || null,
+        name: preferredName || null,
+        source: "nature-remo",
+        temperature_c: null,
+        humidity_pct: null,
+        illuminance: null,
+        motion: null,
+        updated_at: null,
+        raw_state: `http_${response.status}`,
+      };
+    }
+
+    const devices = (await response.json()) as NatureRemoDevice[];
+    if (!Array.isArray(devices)) {
+      return null;
+    }
+    const device = chooseNatureRemoRoomSensor(devices, preferredId, preferredName);
+    if (!device) {
+      return {
+        id: preferredId || null,
+        name: preferredName || null,
+        source: "nature-remo",
+        temperature_c: null,
+        humidity_pct: null,
+        illuminance: null,
+        motion: null,
+        updated_at: null,
+        raw_state: "missing_sensor",
+      };
+    }
+
+    const events = device.newest_events ?? {};
+    const timestamps = [
+      events.te?.created_at,
+      events.hu?.created_at,
+      events.il?.created_at,
+      events.mo?.created_at,
+    ].filter((value): value is string => Boolean(value));
+
+    return {
+      id: device.serial_number ?? null,
+      name: device.name ?? device.serial_number ?? null,
+      source: "nature-remo",
+      temperature_c: coerceNumber(events.te?.val),
+      humidity_pct: coerceNumber(events.hu?.val),
+      illuminance: coerceNumber(events.il?.val),
+      motion: coerceMotion(events.mo?.val),
+      updated_at: timestamps.sort().at(-1) ?? null,
+      raw_state: roomSensorMetrics(device).join(",") || "no_metrics",
+    };
+  } catch {
+    return {
+      id: preferredId || null,
+      name: preferredName || null,
+      source: "nature-remo",
+      temperature_c: null,
+      humidity_pct: null,
+      illuminance: null,
+      motion: null,
+      updated_at: null,
+      raw_state: "fetch_error",
+    };
+  }
 }
 
 export function normalizePresenceState(rawState: string | null | undefined): CompanionPresence {
@@ -389,6 +643,7 @@ function extractObservation(
   interoception: InteroceptionState | null,
   dominant: ReturnType<typeof dominantDesire>,
   presence: PresenceSnapshot | null,
+  roomSensor: RoomSensorSnapshot | null,
 ): ObservationSnapshot {
   const base = defaultObservation(now);
   const profile = dominant ? ATTENTION_MAP[dominant.name] : null;
@@ -417,6 +672,19 @@ function extractObservation(
     companion_presence_last_changed:
       presence?.last_changed ?? base.companion_presence_last_changed,
     companion_presence_raw: presence?.raw_state ?? base.companion_presence_raw,
+    room_sensor_id: roomSensor?.id ?? base.room_sensor_id,
+    room_sensor_name: roomSensor?.name ?? base.room_sensor_name,
+    room_sensor_source: roomSensor?.source ?? base.room_sensor_source,
+    room_sensor_temperature_c:
+      roomSensor?.temperature_c ?? base.room_sensor_temperature_c,
+    room_sensor_humidity_pct:
+      roomSensor?.humidity_pct ?? base.room_sensor_humidity_pct,
+    room_sensor_illuminance:
+      roomSensor?.illuminance ?? base.room_sensor_illuminance,
+    room_sensor_motion: roomSensor?.motion ?? base.room_sensor_motion,
+    room_sensor_updated_at:
+      roomSensor?.updated_at ?? base.room_sensor_updated_at,
+    room_sensor_raw: roomSensor?.raw_state ?? base.room_sensor_raw,
   };
 }
 
@@ -568,6 +836,7 @@ function recentEventContains(events: ContinuityEvent[], needle: string): boolean
 function derivePreferences(
   previous: PreferenceState | null,
   recentEvents: ContinuityEvent[],
+  observation: ObservationSnapshot,
 ): PreferenceState {
   const next = { ...(previous ?? defaultPreferences()) };
 
@@ -583,6 +852,18 @@ function derivePreferences(
     recentEventContains(recentEvents, "暖か")
   ) {
     next.favored_light = "warm";
+  } else if (typeof observation.room_sensor_illuminance === "number") {
+    if (observation.room_sensor_illuminance <= 120) {
+      next.favored_light = "dim";
+    } else if (observation.room_sensor_illuminance >= 600) {
+      next.favored_light = "bright";
+    }
+  }
+
+  if (observation.companion_presence === "present") {
+    next.social_proximity = "engaged";
+  } else if (observation.room_sensor_motion === true) {
+    next.social_proximity = "present";
   }
 
   return next;
@@ -629,6 +910,29 @@ export function deriveAffect(
     intensity += 0.05;
     valence += 0.05;
     note = "the room settled into dimmer light, softening the affective tone";
+  }
+
+  if (
+    typeof observation.room_sensor_temperature_c === "number" &&
+    observation.room_sensor_temperature_c >= 27
+  ) {
+    intensity += 0.06;
+    if (tone === "flat" || tone === "warm") {
+      tone = "restless";
+    }
+    note = `the room feels warm at ${observation.room_sensor_temperature_c.toFixed(1)}C`;
+  }
+
+  if (
+    observation.room_sensor_motion === true &&
+    observation.companion_presence === "unknown"
+  ) {
+    valence += 0.06;
+    intensity += 0.06;
+    if (tone === "flat") {
+      tone = "warm";
+    }
+    note = "motion in the room suggests a nearby presence, even if identity is still uncertain";
   }
 
   intensity = clamp(round(intensity), 0, 1);
@@ -933,7 +1237,17 @@ function mergeOwnership(
   }
 
   next.last_observation_at = observation.at;
-  next.last_observation_detail = `dominant=${observation.dominant_desire ?? "none"} attention=${observation.attention_target} presence=${observation.companion_presence}`;
+  const roomBits: string[] = [];
+  if (observation.room_sensor_temperature_c !== null) {
+    roomBits.push(`temp=${observation.room_sensor_temperature_c}C`);
+  }
+  if (observation.room_sensor_humidity_pct !== null) {
+    roomBits.push(`humidity=${observation.room_sensor_humidity_pct}%`);
+  }
+  if (observation.room_sensor_motion !== null) {
+    roomBits.push(`motion=${observation.room_sensor_motion ? "on" : "off"}`);
+  }
+  next.last_observation_detail = `dominant=${observation.dominant_desire ?? "none"} attention=${observation.attention_target} presence=${observation.companion_presence}${roomBits.length > 0 ? ` room=${roomBits.join("/")}` : ""}`;
 
   return next;
 }
@@ -977,8 +1291,15 @@ async function tick(): Promise<void> {
   const dominant = desireState ? dominantDesire(desireState) : null;
   const interoception = await loadInteroceptionState();
   const presence = await loadHomeAssistantPresence();
+  const roomSensor = await loadNatureRemoRoomSensor();
   const recentEvents = await loadRecentEvents();
-  const observation = extractObservation(now, interoception, dominant, presence);
+  const observation = extractObservation(
+    now,
+    interoception,
+    dominant,
+    presence,
+    roomSensor,
+  );
   const previousTick = previous ? parseTimestamp(previous.updated_at) : null;
   const gapS =
     previousTick === null
@@ -1010,7 +1331,11 @@ async function tick(): Promise<void> {
     previous?.unfinished_threads ?? [],
   );
   const wake = wakeDecision(ruptureFlags, predictionStats, observation);
-  const preferences = derivePreferences(previous?.preferences ?? null, recentEvents);
+  const preferences = derivePreferences(
+    previous?.preferences ?? null,
+    recentEvents,
+    observation,
+  );
   const affect = deriveAffect(
     previous?.affect ?? null,
     observation,
@@ -1028,7 +1353,7 @@ async function tick(): Promise<void> {
         ? "observation"
         : "tick",
     source: "continuity-daemon",
-    detail: `score=${score.toFixed(3)} dominant=${observation.dominant_desire ?? "none"} attention=${observation.attention_target} presence=${observation.companion_presence}`,
+    detail: `score=${score.toFixed(3)} dominant=${observation.dominant_desire ?? "none"} attention=${observation.attention_target} presence=${observation.companion_presence}${observation.room_sensor_temperature_c !== null ? ` temp=${observation.room_sensor_temperature_c}C` : ""}${observation.room_sensor_motion !== null ? ` motion=${observation.room_sensor_motion ? "on" : "off"}` : ""}`,
     continuity_score: score,
   };
 
@@ -1079,8 +1404,23 @@ async function summary(): Promise<void> {
   const gap =
     state.last_tick_gap_s === null ? "?" : state.last_tick_gap_s.toFixed(1);
   const openThreads = openThreadsOf(state.unfinished_threads);
+  const roomParts: string[] = [];
+  if (state.last_observation.room_sensor_temperature_c !== null) {
+    roomParts.push(`${state.last_observation.room_sensor_temperature_c}C`);
+  }
+  if (state.last_observation.room_sensor_humidity_pct !== null) {
+    roomParts.push(`${state.last_observation.room_sensor_humidity_pct}%`);
+  }
+  if (state.last_observation.room_sensor_illuminance !== null) {
+    roomParts.push(`${state.last_observation.room_sensor_illuminance}lx`);
+  }
+  if (state.last_observation.room_sensor_motion !== null) {
+    roomParts.push(`motion:${state.last_observation.room_sensor_motion ? "on" : "off"}`);
+  }
+  const roomSummary =
+    roomParts.length > 0 ? roomParts.join("/") : "unknown";
   console.log(
-    `[continuity] score=${state.continuity_score.toFixed(3)} band=${state.continuity_band} gap=${gap}s heartbeats=${state.last_observation.heartbeats ?? "?"} dominant=${state.last_observation.dominant_desire ?? "none"} attention=${state.last_observation.attention_target} presence=${companionPresenceOf(state.last_observation)} affect=${state.affect.tone}:${state.affect.intensity.toFixed(2)} valence=${state.affect.valence.toFixed(2)} threads=${openThreads.length} thread_head=${JSON.stringify(recentOpenThreadSummary(state.unfinished_threads))} intentions=${intentions} wake=${state.should_wake ? "yes" : "no"} reason=${state.wake_reason} ruptures=${ruptures} note=${state.continuity_note}`,
+    `[continuity] score=${state.continuity_score.toFixed(3)} band=${state.continuity_band} gap=${gap}s heartbeats=${state.last_observation.heartbeats ?? "?"} dominant=${state.last_observation.dominant_desire ?? "none"} attention=${state.last_observation.attention_target} presence=${companionPresenceOf(state.last_observation)} room=${roomSummary} affect=${state.affect.tone}:${state.affect.intensity.toFixed(2)} valence=${state.affect.valence.toFixed(2)} threads=${openThreads.length} thread_head=${JSON.stringify(recentOpenThreadSummary(state.unfinished_threads))} intentions=${intentions} wake=${state.should_wake ? "yes" : "no"} reason=${state.wake_reason} ruptures=${ruptures} note=${state.continuity_note}`,
   );
 }
 
@@ -1191,6 +1531,8 @@ Commands:
       Update continuity self-state from interoception + desire state.
       If HOME_ASSISTANT_URL / HOME_ASSISTANT_TOKEN / HOME_ASSISTANT_PRESENCE_ENTITY_ID
       are set, also fold companion presence into the self-thread.
+      If NATURE_REMO_ACCESS_TOKEN is set (directly or via room-actuator-mcp/.env),
+      fold the primary Nature Remo room sensor into the self-thread too.
   status
       Print the full persisted self-state as JSON.
   summary

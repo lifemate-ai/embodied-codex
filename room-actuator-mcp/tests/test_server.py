@@ -54,3 +54,25 @@ def test_aircon_observation_continuity_event(monkeypatch):
         "record-observation",
         "aircon_status id=bedroom-ac power=on mode=warm target=21C",
     )
+
+
+def test_room_sensor_observation_continuity_event(monkeypatch):
+    monkeypatch.setenv("ROOM_ACTUATOR_BACKEND", "nature_remo")
+    server = LightingMCPServer()
+
+    event = server._continuity_event_for_tool(
+        "room_sensor_status",
+        {"sensor_id": "remo-bedroom"},
+        {
+            "id": "remo-bedroom",
+            "temperature_c": 26.8,
+            "humidity_pct": 34,
+            "illuminance": 87,
+            "motion": True,
+        },
+    )
+
+    assert event == (
+        "record-observation",
+        "room_sensor_status id=remo-bedroom temp=26.8C humidity=34% illuminance=87 motion=on",
+    )
