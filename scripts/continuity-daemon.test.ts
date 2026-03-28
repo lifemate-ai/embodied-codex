@@ -1,13 +1,72 @@
 import { describe, expect, test } from "bun:test";
 import {
   deriveAffect,
+  haversineMeters,
   normalizePresenceState,
+  normalizeGpsMode,
   parseContinuationMarker,
-  resolveLatestThread,
   presenceFlagsForTransition,
+  resolveLatestThread,
+  shouldRefreshGpsPlace,
   upsertUnfinishedThread,
   wakeDecision,
 } from "./continuity-daemon.ts";
+
+function makeObservation(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    at: "2026-03-29T12:00:00Z",
+    phase: "day",
+    heartbeats: 1,
+    arousal: 0.2,
+    mem_free: 0.5,
+    dominant_desire: null,
+    dominant_level: 0,
+    attention_mode: "maintenance",
+    attention_target: "local_state",
+    action_bias: "stabilize",
+    companion_presence: "unknown",
+    companion_presence_source: null,
+    companion_presence_last_changed: null,
+    companion_presence_raw: null,
+    room_sensor_id: null,
+    room_sensor_name: null,
+    room_sensor_source: null,
+    room_sensor_temperature_c: null,
+    room_sensor_humidity_pct: null,
+    room_sensor_illuminance: null,
+    room_sensor_motion: null,
+    room_sensor_updated_at: null,
+    room_sensor_raw: null,
+    gps_source: null,
+    gps_mode: "unknown",
+    gps_latitude: null,
+    gps_longitude: null,
+    gps_elevation_m: null,
+    gps_speed_mps: null,
+    gps_climb_mps: null,
+    gps_time: null,
+    gps_total_satellites: null,
+    gps_used_satellites: null,
+    gps_updated_at: null,
+    gps_raw_mode: null,
+    gps_place_source: null,
+    gps_place_status: "unknown",
+    gps_place_label: null,
+    gps_place_road: null,
+    gps_place_neighbourhood: null,
+    gps_place_locality: null,
+    gps_place_region: null,
+    gps_place_country: null,
+    gps_place_postcode: null,
+    gps_place_latitude: null,
+    gps_place_longitude: null,
+    gps_place_updated_at: null,
+    gps_place_raw_display_name: null,
+    ...overrides,
+  };
+}
 
 describe("normalizePresenceState", () => {
   test("maps common entity states to present/absent/unknown", () => {
@@ -16,6 +75,70 @@ describe("normalizePresenceState", () => {
     expect(normalizePresenceState("off")).toBe("absent");
     expect(normalizePresenceState("clear")).toBe("absent");
     expect(normalizePresenceState("unavailable")).toBe("unknown");
+  });
+});
+
+describe("normalizeGpsMode", () => {
+  test("maps Home Assistant GPSD states to continuity modes", () => {
+    expect(normalizeGpsMode("2d_fix")).toBe("2d_fix");
+    expect(normalizeGpsMode("3d_fix")).toBe("3d_fix");
+    expect(normalizeGpsMode("unknown")).toBe("unknown");
+    expect(normalizeGpsMode("unavailable")).toBe("unknown");
+  });
+});
+
+describe("gps place refresh policy", () => {
+  test("measures distance in meters", () => {
+    expect(haversineMeters(34.664577684, 135.461638493, 34.664577684, 135.461638493)).toBe(
+      0,
+    );
+    expect(haversineMeters(34.66457, 135.46163, 34.66557, 135.46163)).toBeGreaterThan(
+      100,
+    );
+  });
+
+  test("refreshes only after both age and distance thresholds", () => {
+    const now = new Date("2026-03-29T12:10:00Z");
+    const cached = {
+      source: "nominatim",
+      status: "resolved",
+      label: "Bedroom, Kyoto",
+      road: null,
+      neighbourhood: "Bedroom",
+      locality: "Kyoto",
+      region: "Kyoto",
+      country: "Japan",
+      postcode: null,
+      latitude: 34.6645,
+      longitude: 135.4616,
+      updated_at: "2026-03-29T12:05:30Z",
+      raw_display_name: "Bedroom, Kyoto",
+    } as const;
+    const movedGps = {
+      source: "home-assistant:sensor.gps",
+      mode: "3d_fix",
+      latitude: 34.6665,
+      longitude: 135.4616,
+      elevation_m: 4.3,
+      speed_mps: 0,
+      climb_mps: 0,
+      time: "2026-03-29T12:10:00Z",
+      total_satellites: 10,
+      used_satellites: 7,
+      updated_at: "2026-03-29T12:10:00Z",
+      raw_mode: "3d_fix",
+    } as const;
+
+    expect(shouldRefreshGpsPlace(cached, movedGps, now, 100, 600)).toBe(false);
+    expect(
+      shouldRefreshGpsPlace(
+        { ...cached, updated_at: "2026-03-29T11:59:00Z" },
+        movedGps,
+        now,
+        100,
+        600,
+      ),
+    ).toBe(true);
   });
 });
 
@@ -41,22 +164,12 @@ describe("wakeDecision", () => {
     const wake = wakeDecision(
       ["companion_arrived"],
       { missed: 0 },
-      {
-        at: "2026-03-29T12:00:00Z",
-        phase: "day",
-        heartbeats: 1,
-        arousal: 0.2,
-        mem_free: 0.5,
-        dominant_desire: null,
-        dominant_level: 0,
-        attention_mode: "maintenance",
-        attention_target: "local_state",
-        action_bias: "stabilize",
+      makeObservation({
         companion_presence: "present",
         companion_presence_source: "home-assistant:binary_sensor.bedroom_presence",
         companion_presence_last_changed: "2026-03-29T11:59:00Z",
         companion_presence_raw: "on",
-      },
+      }),
     );
 
     expect(wake).toEqual({
@@ -119,17 +232,9 @@ describe("affect derivation", () => {
   test("presence warms affect and dim light softens it", () => {
     const affect = deriveAffect(
       null,
-      {
-        at: "2026-03-29T12:00:00Z",
+      makeObservation({
         phase: "night",
         heartbeats: 2,
-        arousal: 0.2,
-        mem_free: 0.5,
-        dominant_desire: null,
-        dominant_level: 0,
-        attention_mode: "maintenance",
-        attention_target: "local_state",
-        action_bias: "stabilize",
         companion_presence: "present",
         companion_presence_source: "home-assistant:binary_sensor.bedroom_presence",
         companion_presence_last_changed: "2026-03-29T11:59:00Z",
@@ -143,7 +248,7 @@ describe("affect derivation", () => {
         room_sensor_motion: true,
         room_sensor_updated_at: "2026-03-29T11:59:30Z",
         room_sensor_raw: "te,hu,il,mo",
-      },
+      }),
       [
         {
           ts: "2026-03-29T11:58:00Z",
@@ -163,21 +268,9 @@ describe("affect derivation", () => {
   test("warm room and motion can make affect restless even without confirmed presence", () => {
     const affect = deriveAffect(
       null,
-      {
-        at: "2026-03-29T12:00:00Z",
-        phase: "day",
+      makeObservation({
         heartbeats: 2,
-        arousal: 0.2,
-        mem_free: 0.5,
-        dominant_desire: null,
-        dominant_level: 0,
-        attention_mode: "maintenance",
-        attention_target: "local_state",
-        action_bias: "stabilize",
         companion_presence: "unknown",
-        companion_presence_source: null,
-        companion_presence_last_changed: null,
-        companion_presence_raw: null,
         room_sensor_id: "remo-bedroom",
         room_sensor_name: "Bedroom",
         room_sensor_source: "nature-remo",
@@ -187,7 +280,7 @@ describe("affect derivation", () => {
         room_sensor_motion: true,
         room_sensor_updated_at: "2026-03-29T11:59:30Z",
         room_sensor_raw: "te,hu,il,mo",
-      },
+      }),
       [],
       [],
     );

@@ -240,6 +240,24 @@ print(
             clean(str(observation.get("room_sensor_illuminance", ""))),
             clean("on" if observation.get("room_sensor_motion") is True else "off" if observation.get("room_sensor_motion") is False else ""),
             clean(observation.get("room_sensor_updated_at")),
+            clean(observation.get("gps_mode")),
+            clean(str(observation.get("gps_latitude", ""))),
+            clean(str(observation.get("gps_longitude", ""))),
+            clean(str(observation.get("gps_elevation_m", ""))),
+            clean(str(observation.get("gps_speed_mps", ""))),
+            clean(str(observation.get("gps_climb_mps", ""))),
+            clean(observation.get("gps_time")),
+            clean(str(observation.get("gps_total_satellites", ""))),
+            clean(str(observation.get("gps_used_satellites", ""))),
+            clean(observation.get("gps_updated_at")),
+            clean(observation.get("gps_place_label")),
+            clean(observation.get("gps_place_road")),
+            clean(observation.get("gps_place_neighbourhood")),
+            clean(observation.get("gps_place_locality")),
+            clean(observation.get("gps_place_region")),
+            clean(observation.get("gps_place_country")),
+            clean(observation.get("gps_place_postcode")),
+            clean(observation.get("gps_place_updated_at")),
             clean(thread_summary),
             clean(str(len(threads))),
             clean(affect.get("tone")),
@@ -254,7 +272,7 @@ print(
 )
 PY
 )"
-    IFS=$'\x1f' read -r CONTINUITY_FORCE_WAKE CONTINUITY_WAKE_REASON CONTINUITY_BAND CONTINUITY_NOTE CONTINUITY_RECENT CONTINUITY_LAST_ACTION CONTINUITY_LAST_OBSERVATION CONTINUITY_COMPANION_PRESENCE CONTINUITY_PRESENCE_SOURCE CONTINUITY_PRESENCE_LAST_CHANGED CONTINUITY_ROOM_SENSOR_NAME CONTINUITY_ROOM_SENSOR_SOURCE CONTINUITY_ROOM_SENSOR_TEMP CONTINUITY_ROOM_SENSOR_HUMIDITY CONTINUITY_ROOM_SENSOR_ILLUMINANCE CONTINUITY_ROOM_SENSOR_MOTION CONTINUITY_ROOM_SENSOR_UPDATED CONTINUITY_OPEN_THREADS CONTINUITY_THREAD_COUNT CONTINUITY_AFFECT_TONE CONTINUITY_AFFECT_INTENSITY CONTINUITY_AFFECT_VALENCE CONTINUITY_AFFECT_NOTE CONTINUITY_FAVORED_LIGHT CONTINUITY_SOCIAL_PROXIMITY CONTINUITY_VOICE_STYLE <<< "$CONTINUITY_META"
+    IFS=$'\x1f' read -r CONTINUITY_FORCE_WAKE CONTINUITY_WAKE_REASON CONTINUITY_BAND CONTINUITY_NOTE CONTINUITY_RECENT CONTINUITY_LAST_ACTION CONTINUITY_LAST_OBSERVATION CONTINUITY_COMPANION_PRESENCE CONTINUITY_PRESENCE_SOURCE CONTINUITY_PRESENCE_LAST_CHANGED CONTINUITY_ROOM_SENSOR_NAME CONTINUITY_ROOM_SENSOR_SOURCE CONTINUITY_ROOM_SENSOR_TEMP CONTINUITY_ROOM_SENSOR_HUMIDITY CONTINUITY_ROOM_SENSOR_ILLUMINANCE CONTINUITY_ROOM_SENSOR_MOTION CONTINUITY_ROOM_SENSOR_UPDATED CONTINUITY_GPS_MODE CONTINUITY_GPS_LATITUDE CONTINUITY_GPS_LONGITUDE CONTINUITY_GPS_ELEVATION CONTINUITY_GPS_SPEED CONTINUITY_GPS_CLIMB CONTINUITY_GPS_TIME CONTINUITY_GPS_TOTAL_SATELLITES CONTINUITY_GPS_USED_SATELLITES CONTINUITY_GPS_UPDATED CONTINUITY_GPS_PLACE_LABEL CONTINUITY_GPS_PLACE_ROAD CONTINUITY_GPS_PLACE_NEIGHBOURHOOD CONTINUITY_GPS_PLACE_LOCALITY CONTINUITY_GPS_PLACE_REGION CONTINUITY_GPS_PLACE_COUNTRY CONTINUITY_GPS_PLACE_POSTCODE CONTINUITY_GPS_PLACE_UPDATED CONTINUITY_OPEN_THREADS CONTINUITY_THREAD_COUNT CONTINUITY_AFFECT_TONE CONTINUITY_AFFECT_INTENSITY CONTINUITY_AFFECT_VALENCE CONTINUITY_AFFECT_NOTE CONTINUITY_FAVORED_LIGHT CONTINUITY_SOCIAL_PROXIMITY CONTINUITY_VOICE_STYLE <<< "$CONTINUITY_META"
 
     if [ "$CONTINUITY_FORCE_WAKE" = "true" ]; then
       echo "[continuity wake] reason=${CONTINUITY_WAKE_REASON:-none} band=${CONTINUITY_BAND:-unknown}" >> "$LOG_FILE"
@@ -496,6 +514,12 @@ ${CONTINUITY_TEXT}
 - room_sensor: ${CONTINUITY_ROOM_SENSOR_NAME:-none} temp=${CONTINUITY_ROOM_SENSOR_TEMP:-unknown}C humidity=${CONTINUITY_ROOM_SENSOR_HUMIDITY:-unknown}% illuminance=${CONTINUITY_ROOM_SENSOR_ILLUMINANCE:-unknown} motion=${CONTINUITY_ROOM_SENSOR_MOTION:-unknown}
 - room_sensor_source: ${CONTINUITY_ROOM_SENSOR_SOURCE:-none}
 - room_sensor_updated_at: ${CONTINUITY_ROOM_SENSOR_UPDATED:-unknown}
+- gps: mode=${CONTINUITY_GPS_MODE:-unknown} lat=${CONTINUITY_GPS_LATITUDE:-unknown} lon=${CONTINUITY_GPS_LONGITUDE:-unknown} elevation=${CONTINUITY_GPS_ELEVATION:-unknown}m speed=${CONTINUITY_GPS_SPEED:-unknown}m/s climb=${CONTINUITY_GPS_CLIMB:-unknown}m/s
+- gps_time: ${CONTINUITY_GPS_TIME:-unknown}
+- gps_satellites: total=${CONTINUITY_GPS_TOTAL_SATELLITES:-unknown} used=${CONTINUITY_GPS_USED_SATELLITES:-unknown}
+- gps_updated_at: ${CONTINUITY_GPS_UPDATED:-unknown}
+- gps_place: label=${CONTINUITY_GPS_PLACE_LABEL:-unknown} road=${CONTINUITY_GPS_PLACE_ROAD:-unknown} neighbourhood=${CONTINUITY_GPS_PLACE_NEIGHBOURHOOD:-unknown} locality=${CONTINUITY_GPS_PLACE_LOCALITY:-unknown} region=${CONTINUITY_GPS_PLACE_REGION:-unknown} country=${CONTINUITY_GPS_PLACE_COUNTRY:-unknown} postcode=${CONTINUITY_GPS_PLACE_POSTCODE:-unknown}
+- gps_place_updated_at: ${CONTINUITY_GPS_PLACE_UPDATED:-unknown}
 - unfinished_threads: ${CONTINUITY_THREAD_COUNT:-0}
 - thread_head: ${CONTINUITY_OPEN_THREADS:-none}
 - affect: ${CONTINUITY_AFFECT_TONE:-flat} intensity=${CONTINUITY_AFFECT_INTENSITY:-0} valence=${CONTINUITY_AFFECT_VALENCE:-0}

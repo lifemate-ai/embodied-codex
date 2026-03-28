@@ -495,6 +495,32 @@ If those variables are not exported globally, the continuity daemon also falls b
 temperature / humidity / illuminance / motion into `self_state.json` and the injected
 `## Continuity` section.
 
+If you also want continuity to absorb GPS state from Home Assistant GPSD entities, set:
+
+```bash
+export HOME_ASSISTANT_GPS_ENTITY_PREFIX="sensor.gps_192_168_1_198"
+```
+
+Each `tick` then folds GPS mode, coordinates, elevation, speed, climb, and timestamp into
+`self_state.json` and the injected `## Continuity` section.
+
+To derive a lightweight nearby place label from those coordinates, continuity can also
+reverse-geocode through the public Nominatim endpoint:
+
+```bash
+export CODEX_GPS_REVERSE_ENABLE="1"
+export CODEX_GPS_REVERSE_MIN_DISTANCE_METERS="150"
+export CODEX_GPS_REVERSE_MIN_INTERVAL_SECONDS="600"
+# optional overrides
+export CODEX_GPS_REVERSE_LANGUAGE="ja,en"
+export CODEX_GPS_REVERSE_ZOOM="14"
+export CODEX_GPS_REVERSE_USER_AGENT="embodied-codex-continuity/0.1 (+https://github.com/kmizu/embodied-codex)"
+```
+
+The daemon intentionally caches results and only refreshes the place label after both a
+distance threshold and a minimum interval. This keeps public Nominatim usage polite while
+still letting continuity maintain a rough `gps_place` sense such as neighbourhood / city.
+
 The continuity layer can also persist unfinished threads. `thread-open` / `thread-resolve`
 update them directly, and `sync-last-message` extracts `[CONTINUE: ...]` or `[DONE]` from
 an assistant message so autonomous heartbeats can carry unfinished intentions forward.

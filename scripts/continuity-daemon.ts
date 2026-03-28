@@ -40,6 +40,58 @@ function homeAssistantPresenceEntityId(): string {
   return envString(process.env.HOME_ASSISTANT_PRESENCE_ENTITY_ID);
 }
 
+function homeAssistantGpsEntityPrefix(): string {
+  return envString(process.env.HOME_ASSISTANT_GPS_ENTITY_PREFIX);
+}
+
+function gpsReverseGeocodeEnabled(): boolean {
+  const value = envString(process.env.CODEX_GPS_REVERSE_ENABLE).toLowerCase();
+  return value === "1" || value === "true" || value === "yes" || value === "on";
+}
+
+function gpsReverseGeocodeUrl(): string {
+  return (
+    envString(process.env.CODEX_GPS_REVERSE_URL).replace(/\/+$/, "") ||
+    "https://nominatim.openstreetmap.org/reverse"
+  );
+}
+
+function gpsReverseGeocodeUserAgent(): string {
+  return (
+    envString(process.env.CODEX_GPS_REVERSE_USER_AGENT) ||
+    "embodied-codex-continuity/0.1 (+https://github.com/kmizu/embodied-codex)"
+  );
+}
+
+function gpsReverseGeocodeLanguage(): string {
+  return envString(process.env.CODEX_GPS_REVERSE_LANGUAGE) || "ja,en";
+}
+
+function gpsReverseGeocodeEmail(): string {
+  return envString(process.env.CODEX_GPS_REVERSE_EMAIL);
+}
+
+function gpsReverseGeocodeZoom(): number {
+  return Math.max(
+    3,
+    Math.min(18, Math.trunc(envNumber(process.env.CODEX_GPS_REVERSE_ZOOM, 14))),
+  );
+}
+
+function gpsReverseGeocodeMinDistanceMeters(): number {
+  return Math.max(
+    25,
+    envNumber(process.env.CODEX_GPS_REVERSE_MIN_DISTANCE_METERS, 150),
+  );
+}
+
+function gpsReverseGeocodeMinIntervalSeconds(): number {
+  return Math.max(
+    60,
+    envNumber(process.env.CODEX_GPS_REVERSE_MIN_INTERVAL_SECONDS, 600),
+  );
+}
+
 function natureRemoRoomSensorId(): string {
   return envString(
     process.env.NATURE_REMO_ROOM_SENSOR_ID ?? process.env.CODEX_ROOM_SENSOR_ID,
@@ -83,6 +135,8 @@ type EventKind = "tick" | "action" | "observation" | "note" | "rupture";
 type CompanionPresence = "present" | "absent" | "unknown";
 type ThreadStatus = "open" | "resolved";
 type AffectTone = "flat" | "warm" | "bright" | "tender" | "restless";
+type GpsMode = "2d_fix" | "3d_fix" | "unknown";
+type GpsPlaceStatus = "unknown" | "resolved" | "cached" | "fetch_error";
 
 interface InteroceptionState {
   now?: {
@@ -122,6 +176,37 @@ interface RoomSensorSnapshot {
   raw_state: string | null;
 }
 
+interface GpsSnapshot {
+  source: string | null;
+  mode: GpsMode;
+  latitude: number | null;
+  longitude: number | null;
+  elevation_m: number | null;
+  speed_mps: number | null;
+  climb_mps: number | null;
+  time: string | null;
+  total_satellites: number | null;
+  used_satellites: number | null;
+  updated_at: string | null;
+  raw_mode: string | null;
+}
+
+interface GpsPlaceSnapshot {
+  source: string | null;
+  status: GpsPlaceStatus;
+  label: string | null;
+  road: string | null;
+  neighbourhood: string | null;
+  locality: string | null;
+  region: string | null;
+  country: string | null;
+  postcode: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  updated_at: string | null;
+  raw_display_name: string | null;
+}
+
 interface NatureRemoNewestEvent {
   val?: unknown;
   created_at?: string;
@@ -157,6 +242,31 @@ interface ObservationSnapshot {
   room_sensor_motion: boolean | null;
   room_sensor_updated_at: string | null;
   room_sensor_raw: string | null;
+  gps_source: string | null;
+  gps_mode: GpsMode;
+  gps_latitude: number | null;
+  gps_longitude: number | null;
+  gps_elevation_m: number | null;
+  gps_speed_mps: number | null;
+  gps_climb_mps: number | null;
+  gps_time: string | null;
+  gps_total_satellites: number | null;
+  gps_used_satellites: number | null;
+  gps_updated_at: string | null;
+  gps_raw_mode: string | null;
+  gps_place_source: string | null;
+  gps_place_status: GpsPlaceStatus;
+  gps_place_label: string | null;
+  gps_place_road: string | null;
+  gps_place_neighbourhood: string | null;
+  gps_place_locality: string | null;
+  gps_place_region: string | null;
+  gps_place_country: string | null;
+  gps_place_postcode: string | null;
+  gps_place_latitude: number | null;
+  gps_place_longitude: number | null;
+  gps_place_updated_at: string | null;
+  gps_place_raw_display_name: string | null;
 }
 
 interface ContinuityPrediction {
@@ -286,8 +396,14 @@ async function loadJsonFile<T>(path: string): Promise<T | null> {
 async function loadState(): Promise<ContinuityState | null> {
   const raw = await loadJsonFile<ContinuityState>(STATE_PATH);
   if (!raw) return null;
+  const observationTime =
+    parseTimestamp(raw.last_observation?.at ?? raw.updated_at) ?? new Date();
   return {
     ...raw,
+    last_observation: {
+      ...defaultObservation(observationTime),
+      ...(raw.last_observation ?? {}),
+    },
     preferences: raw.preferences ?? defaultPreferences(),
     affect: raw.affect ?? defaultAffect(),
     unfinished_threads: raw.unfinished_threads ?? [],
@@ -356,6 +472,31 @@ function defaultObservation(now: Date): ObservationSnapshot {
     room_sensor_motion: null,
     room_sensor_updated_at: null,
     room_sensor_raw: null,
+    gps_source: null,
+    gps_mode: "unknown",
+    gps_latitude: null,
+    gps_longitude: null,
+    gps_elevation_m: null,
+    gps_speed_mps: null,
+    gps_climb_mps: null,
+    gps_time: null,
+    gps_total_satellites: null,
+    gps_used_satellites: null,
+    gps_updated_at: null,
+    gps_raw_mode: null,
+    gps_place_source: null,
+    gps_place_status: "unknown",
+    gps_place_label: null,
+    gps_place_road: null,
+    gps_place_neighbourhood: null,
+    gps_place_locality: null,
+    gps_place_region: null,
+    gps_place_country: null,
+    gps_place_postcode: null,
+    gps_place_latitude: null,
+    gps_place_longitude: null,
+    gps_place_updated_at: null,
+    gps_place_raw_display_name: null,
   };
 }
 
@@ -423,6 +564,112 @@ function coerceMotion(value: unknown): boolean | null {
     }
   }
   return null;
+}
+
+function coerceString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function dedupeNonEmpty(values: Array<string | null | undefined>): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const value of values) {
+    const trimmed = value?.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    result.push(trimmed);
+  }
+  return result;
+}
+
+export function haversineMeters(
+  leftLat: number,
+  leftLon: number,
+  rightLat: number,
+  rightLon: number,
+): number {
+  const earthRadiusM = 6371000;
+  const toRadians = (degrees: number): number => (degrees * Math.PI) / 180;
+  const dLat = toRadians(rightLat - leftLat);
+  const dLon = toRadians(rightLon - leftLon);
+  const lat1 = toRadians(leftLat);
+  const lat2 = toRadians(rightLat);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return earthRadiusM * c;
+}
+
+function gpsHasCoordinates(
+  gps: GpsSnapshot | null | undefined,
+): gps is GpsSnapshot & { latitude: number; longitude: number } {
+  return Boolean(
+    gps &&
+      gps.mode !== "unknown" &&
+      gps.latitude !== null &&
+      gps.longitude !== null,
+  );
+}
+
+function gpsPlaceFromObservation(
+  observation: Partial<ObservationSnapshot> | null | undefined,
+): GpsPlaceSnapshot | null {
+  if (!observation) return null;
+  if (
+    observation.gps_place_source === undefined &&
+    observation.gps_place_label === undefined &&
+    observation.gps_place_updated_at === undefined
+  ) {
+    return null;
+  }
+  return {
+    source: observation.gps_place_source ?? null,
+    status: observation.gps_place_status ?? "unknown",
+    label: observation.gps_place_label ?? null,
+    road: observation.gps_place_road ?? null,
+    neighbourhood: observation.gps_place_neighbourhood ?? null,
+    locality: observation.gps_place_locality ?? null,
+    region: observation.gps_place_region ?? null,
+    country: observation.gps_place_country ?? null,
+    postcode: observation.gps_place_postcode ?? null,
+    latitude: observation.gps_place_latitude ?? null,
+    longitude: observation.gps_place_longitude ?? null,
+    updated_at: observation.gps_place_updated_at ?? null,
+    raw_display_name: observation.gps_place_raw_display_name ?? null,
+  };
+}
+
+export function shouldRefreshGpsPlace(
+  place: GpsPlaceSnapshot | null,
+  gps: GpsSnapshot | null,
+  now: Date,
+  minDistanceMeters = gpsReverseGeocodeMinDistanceMeters(),
+  minIntervalSeconds = gpsReverseGeocodeMinIntervalSeconds(),
+): boolean {
+  if (!gpsHasCoordinates(gps)) {
+    return false;
+  }
+  if (!place || !place.updated_at) {
+    return true;
+  }
+  const updatedAt = parseTimestamp(place.updated_at);
+  if (!updatedAt) {
+    return true;
+  }
+  const ageSeconds = (now.getTime() - updatedAt.getTime()) / 1000;
+  if (ageSeconds < minIntervalSeconds) {
+    return false;
+  }
+  if (place.latitude === null || place.longitude === null) {
+    return true;
+  }
+  return (
+    haversineMeters(place.latitude, place.longitude, gps.latitude, gps.longitude) >=
+    minDistanceMeters
+  );
 }
 
 function roomSensorMetrics(device: NatureRemoDevice): string[] {
@@ -595,10 +842,18 @@ export function normalizePresenceState(rawState: string | null | undefined): Com
   return "unknown";
 }
 
-async function loadHomeAssistantPresence(): Promise<PresenceSnapshot | null> {
+export function normalizeGpsMode(rawState: string | null | undefined): GpsMode {
+  const normalized = rawState?.trim().toLowerCase();
+  if (normalized === "2d_fix") return "2d_fix";
+  if (normalized === "3d_fix") return "3d_fix";
+  return "unknown";
+}
+
+async function fetchHomeAssistantEntityState(
+  entityId: string,
+): Promise<HomeAssistantEntityState | null> {
   const url = homeAssistantUrl();
   const token = homeAssistantToken();
-  const entityId = homeAssistantPresenceEntityId();
 
   if (!url || !token || !entityId) {
     return null;
@@ -614,28 +869,289 @@ async function loadHomeAssistantPresence(): Promise<PresenceSnapshot | null> {
 
     if (!response.ok) {
       return {
-        state: "unknown",
-        source: `home-assistant:${entityId}`,
-        last_changed: null,
-        raw_state: `http_${response.status}`,
+        entity_id: entityId,
+        state: `http_${response.status}`,
       };
     }
 
-    const entity = (await response.json()) as HomeAssistantEntityState;
-    return {
-      state: normalizePresenceState(entity.state ?? null),
-      source: `home-assistant:${entityId}`,
-      last_changed: entity.last_changed ?? null,
-      raw_state: entity.state ?? null,
-    };
+    return (await response.json()) as HomeAssistantEntityState;
   } catch {
     return {
-      state: "unknown",
-      source: `home-assistant:${entityId}`,
-      last_changed: null,
-      raw_state: "fetch_error",
+      entity_id: entityId,
+      state: "fetch_error",
     };
   }
+}
+
+async function loadHomeAssistantPresence(): Promise<PresenceSnapshot | null> {
+  const entityId = homeAssistantPresenceEntityId();
+
+  if (!entityId) {
+    return null;
+  }
+
+  const entity = await fetchHomeAssistantEntityState(entityId);
+  return {
+    state: normalizePresenceState(entity?.state ?? null),
+    source: `home-assistant:${entityId}`,
+    last_changed: entity?.last_changed ?? null,
+    raw_state: entity?.state ?? null,
+  };
+}
+
+function gpsEntityId(prefix: string, suffix: string): string {
+  return `${prefix}_${suffix}`;
+}
+
+async function loadHomeAssistantGps(): Promise<GpsSnapshot | null> {
+  const prefix = homeAssistantGpsEntityPrefix();
+  if (!prefix) {
+    return null;
+  }
+
+  const ids = {
+    mode: gpsEntityId(prefix, "mode"),
+    latitude: gpsEntityId(prefix, "latitude"),
+    longitude: gpsEntityId(prefix, "longitude"),
+    elevation: gpsEntityId(prefix, "elevation"),
+    speed: gpsEntityId(prefix, "speed"),
+    climb: gpsEntityId(prefix, "climb"),
+    time: gpsEntityId(prefix, "time"),
+    totalSatellites: gpsEntityId(prefix, "total_satellites"),
+    usedSatellites: gpsEntityId(prefix, "used_satellites"),
+  };
+
+  const [
+    mode,
+    latitude,
+    longitude,
+    elevation,
+    speed,
+    climb,
+    time,
+    totalSatellites,
+    usedSatellites,
+  ] = await Promise.all([
+    fetchHomeAssistantEntityState(ids.mode),
+    fetchHomeAssistantEntityState(ids.latitude),
+    fetchHomeAssistantEntityState(ids.longitude),
+    fetchHomeAssistantEntityState(ids.elevation),
+    fetchHomeAssistantEntityState(ids.speed),
+    fetchHomeAssistantEntityState(ids.climb),
+    fetchHomeAssistantEntityState(ids.time),
+    fetchHomeAssistantEntityState(ids.totalSatellites),
+    fetchHomeAssistantEntityState(ids.usedSatellites),
+  ]);
+
+  const timestamps = [
+    mode?.last_changed,
+    latitude?.last_changed,
+    longitude?.last_changed,
+    elevation?.last_changed,
+    speed?.last_changed,
+    climb?.last_changed,
+    time?.last_changed,
+    totalSatellites?.last_changed,
+    usedSatellites?.last_changed,
+  ].filter((value): value is string => Boolean(value));
+
+  return {
+    source: `home-assistant:${prefix}`,
+    mode: normalizeGpsMode(mode?.state ?? null),
+    latitude: coerceNumber(latitude?.state),
+    longitude: coerceNumber(longitude?.state),
+    elevation_m: coerceNumber(elevation?.state),
+    speed_mps: coerceNumber(speed?.state),
+    climb_mps: coerceNumber(climb?.state),
+    time:
+      typeof time?.state === "string" && time.state !== "unknown" && time.state !== "unavailable"
+        ? time.state
+        : null,
+    total_satellites: coerceNumber(totalSatellites?.state),
+    used_satellites: coerceNumber(usedSatellites?.state),
+    updated_at: timestamps.sort().at(-1) ?? null,
+    raw_mode: mode?.state ?? null,
+  };
+}
+
+interface NominatimReverseResponse {
+  display_name?: unknown;
+  address?: Record<string, unknown>;
+}
+
+function pickAddressPart(
+  address: Record<string, unknown>,
+  keys: string[],
+): string | null {
+  for (const key of keys) {
+    const value = coerceString(address[key]);
+    if (value) return value;
+  }
+  return null;
+}
+
+function composeGpsPlaceLabel(parts: {
+  road: string | null;
+  neighbourhood: string | null;
+  locality: string | null;
+  region: string | null;
+}): string | null {
+  const primary = parts.neighbourhood ?? parts.road;
+  const values = dedupeNonEmpty([primary, parts.locality, parts.region]);
+  return values.length > 0 ? values.join(", ") : null;
+}
+
+function parseNominatimPlace(
+  payload: NominatimReverseResponse,
+  gps: GpsSnapshot & { latitude: number; longitude: number },
+  updatedAt: string,
+): GpsPlaceSnapshot {
+  const address =
+    payload.address && typeof payload.address === "object" ? payload.address : {};
+  const road = pickAddressPart(address, [
+    "road",
+    "pedestrian",
+    "footway",
+    "cycleway",
+    "path",
+  ]);
+  const neighbourhood = pickAddressPart(address, [
+    "neighbourhood",
+    "neighborhood",
+    "suburb",
+    "city_district",
+    "district",
+    "quarter",
+    "hamlet",
+  ]);
+  const locality = pickAddressPart(address, [
+    "city",
+    "town",
+    "village",
+    "municipality",
+    "borough",
+    "county",
+  ]);
+  const region = pickAddressPart(address, ["state", "province", "region"]);
+  const country = pickAddressPart(address, ["country"]);
+  const postcode = pickAddressPart(address, ["postcode"]);
+  const rawDisplayName = coerceString(payload.display_name);
+
+  return {
+    source: "nominatim",
+    status: "resolved",
+    label:
+      composeGpsPlaceLabel({
+        road,
+        neighbourhood,
+        locality,
+        region,
+      }) ?? rawDisplayName,
+    road,
+    neighbourhood,
+    locality,
+    region,
+    country,
+    postcode,
+    latitude: gps.latitude,
+    longitude: gps.longitude,
+    updated_at: updatedAt,
+    raw_display_name: rawDisplayName,
+  };
+}
+
+async function reverseGeocodeWithNominatim(
+  gps: GpsSnapshot & { latitude: number; longitude: number },
+  now: Date,
+): Promise<GpsPlaceSnapshot> {
+  const updatedAt = now.toISOString();
+  try {
+    const params = new URLSearchParams({
+      format: "jsonv2",
+      lat: gps.latitude.toString(),
+      lon: gps.longitude.toString(),
+      addressdetails: "1",
+      zoom: gpsReverseGeocodeZoom().toString(),
+    });
+    const email = gpsReverseGeocodeEmail();
+    if (email) {
+      params.set("email", email);
+    }
+
+    const response = await fetch(`${gpsReverseGeocodeUrl()}?${params.toString()}`, {
+      headers: {
+        "User-Agent": gpsReverseGeocodeUserAgent(),
+        "Accept-Language": gpsReverseGeocodeLanguage(),
+      },
+    });
+
+    if (!response.ok) {
+      return {
+        source: "nominatim",
+        status: "fetch_error",
+        label: null,
+        road: null,
+        neighbourhood: null,
+        locality: null,
+        region: null,
+        country: null,
+        postcode: null,
+        latitude: gps.latitude,
+        longitude: gps.longitude,
+        updated_at: updatedAt,
+        raw_display_name: `http_${response.status}`,
+      };
+    }
+
+    const payload = (await response.json()) as NominatimReverseResponse;
+    return parseNominatimPlace(payload, gps, updatedAt);
+  } catch {
+    return {
+      source: "nominatim",
+      status: "fetch_error",
+      label: null,
+      road: null,
+      neighbourhood: null,
+      locality: null,
+      region: null,
+      country: null,
+      postcode: null,
+      latitude: gps.latitude,
+      longitude: gps.longitude,
+      updated_at: updatedAt,
+      raw_display_name: "fetch_error",
+    };
+  }
+}
+
+async function loadGpsPlace(
+  previous: ObservationSnapshot | null,
+  gps: GpsSnapshot | null,
+  now: Date,
+): Promise<GpsPlaceSnapshot | null> {
+  const cached = gpsPlaceFromObservation(previous);
+  if (!gpsReverseGeocodeEnabled()) {
+    return cached;
+  }
+  if (!gpsHasCoordinates(gps)) {
+    return cached;
+  }
+
+  if (!shouldRefreshGpsPlace(cached, gps, now)) {
+    return cached ? { ...cached, status: "cached" } : null;
+  }
+
+  const resolved = await reverseGeocodeWithNominatim(gps, now);
+  if (resolved.status === "resolved" || !cached) {
+    return resolved;
+  }
+
+  return {
+    ...cached,
+    status: "fetch_error",
+    updated_at: resolved.updated_at,
+    raw_display_name: resolved.raw_display_name,
+  };
 }
 
 function extractObservation(
@@ -644,6 +1160,8 @@ function extractObservation(
   dominant: ReturnType<typeof dominantDesire>,
   presence: PresenceSnapshot | null,
   roomSensor: RoomSensorSnapshot | null,
+  gps: GpsSnapshot | null,
+  gpsPlace: GpsPlaceSnapshot | null,
 ): ObservationSnapshot {
   const base = defaultObservation(now);
   const profile = dominant ? ATTENTION_MAP[dominant.name] : null;
@@ -685,6 +1203,33 @@ function extractObservation(
     room_sensor_updated_at:
       roomSensor?.updated_at ?? base.room_sensor_updated_at,
     room_sensor_raw: roomSensor?.raw_state ?? base.room_sensor_raw,
+    gps_source: gps?.source ?? base.gps_source,
+    gps_mode: gps?.mode ?? base.gps_mode,
+    gps_latitude: gps?.latitude ?? base.gps_latitude,
+    gps_longitude: gps?.longitude ?? base.gps_longitude,
+    gps_elevation_m: gps?.elevation_m ?? base.gps_elevation_m,
+    gps_speed_mps: gps?.speed_mps ?? base.gps_speed_mps,
+    gps_climb_mps: gps?.climb_mps ?? base.gps_climb_mps,
+    gps_time: gps?.time ?? base.gps_time,
+    gps_total_satellites: gps?.total_satellites ?? base.gps_total_satellites,
+    gps_used_satellites: gps?.used_satellites ?? base.gps_used_satellites,
+    gps_updated_at: gps?.updated_at ?? base.gps_updated_at,
+    gps_raw_mode: gps?.raw_mode ?? base.gps_raw_mode,
+    gps_place_source: gpsPlace?.source ?? base.gps_place_source,
+    gps_place_status: gpsPlace?.status ?? base.gps_place_status,
+    gps_place_label: gpsPlace?.label ?? base.gps_place_label,
+    gps_place_road: gpsPlace?.road ?? base.gps_place_road,
+    gps_place_neighbourhood:
+      gpsPlace?.neighbourhood ?? base.gps_place_neighbourhood,
+    gps_place_locality: gpsPlace?.locality ?? base.gps_place_locality,
+    gps_place_region: gpsPlace?.region ?? base.gps_place_region,
+    gps_place_country: gpsPlace?.country ?? base.gps_place_country,
+    gps_place_postcode: gpsPlace?.postcode ?? base.gps_place_postcode,
+    gps_place_latitude: gpsPlace?.latitude ?? base.gps_place_latitude,
+    gps_place_longitude: gpsPlace?.longitude ?? base.gps_place_longitude,
+    gps_place_updated_at: gpsPlace?.updated_at ?? base.gps_place_updated_at,
+    gps_place_raw_display_name:
+      gpsPlace?.raw_display_name ?? base.gps_place_raw_display_name,
   };
 }
 
@@ -1247,7 +1792,22 @@ function mergeOwnership(
   if (observation.room_sensor_motion !== null) {
     roomBits.push(`motion=${observation.room_sensor_motion ? "on" : "off"}`);
   }
-  next.last_observation_detail = `dominant=${observation.dominant_desire ?? "none"} attention=${observation.attention_target} presence=${observation.companion_presence}${roomBits.length > 0 ? ` room=${roomBits.join("/")}` : ""}`;
+  const gpsBits: string[] = [];
+  if (observation.gps_mode !== "unknown") {
+    gpsBits.push(`mode=${observation.gps_mode}`);
+  }
+  if (
+    observation.gps_latitude !== null &&
+    observation.gps_longitude !== null
+  ) {
+    gpsBits.push(
+      `lat=${observation.gps_latitude.toFixed(6)} lon=${observation.gps_longitude.toFixed(6)}`,
+    );
+  }
+  if (observation.gps_place_label) {
+    gpsBits.push(`near=${observation.gps_place_label}`);
+  }
+  next.last_observation_detail = `dominant=${observation.dominant_desire ?? "none"} attention=${observation.attention_target} presence=${observation.companion_presence}${roomBits.length > 0 ? ` room=${roomBits.join("/")}` : ""}${gpsBits.length > 0 ? ` gps=${gpsBits.join(" ")}` : ""}`;
 
   return next;
 }
@@ -1292,6 +1852,8 @@ async function tick(): Promise<void> {
   const interoception = await loadInteroceptionState();
   const presence = await loadHomeAssistantPresence();
   const roomSensor = await loadNatureRemoRoomSensor();
+  const gps = await loadHomeAssistantGps();
+  const gpsPlace = await loadGpsPlace(previous?.last_observation ?? null, gps, now);
   const recentEvents = await loadRecentEvents();
   const observation = extractObservation(
     now,
@@ -1299,6 +1861,8 @@ async function tick(): Promise<void> {
     dominant,
     presence,
     roomSensor,
+    gps,
+    gpsPlace,
   );
   const previousTick = previous ? parseTimestamp(previous.updated_at) : null;
   const gapS =
@@ -1353,7 +1917,7 @@ async function tick(): Promise<void> {
         ? "observation"
         : "tick",
     source: "continuity-daemon",
-    detail: `score=${score.toFixed(3)} dominant=${observation.dominant_desire ?? "none"} attention=${observation.attention_target} presence=${observation.companion_presence}${observation.room_sensor_temperature_c !== null ? ` temp=${observation.room_sensor_temperature_c}C` : ""}${observation.room_sensor_motion !== null ? ` motion=${observation.room_sensor_motion ? "on" : "off"}` : ""}`,
+    detail: `score=${score.toFixed(3)} dominant=${observation.dominant_desire ?? "none"} attention=${observation.attention_target} presence=${observation.companion_presence}${observation.room_sensor_temperature_c !== null ? ` temp=${observation.room_sensor_temperature_c}C` : ""}${observation.room_sensor_motion !== null ? ` motion=${observation.room_sensor_motion ? "on" : "off"}` : ""}${observation.gps_mode !== "unknown" ? ` gps=${observation.gps_mode}` : ""}${observation.gps_place_label ? ` near=${observation.gps_place_label}` : ""}`,
     continuity_score: score,
   };
 
@@ -1419,8 +1983,13 @@ async function summary(): Promise<void> {
   }
   const roomSummary =
     roomParts.length > 0 ? roomParts.join("/") : "unknown";
+  const gpsSummary =
+    state.last_observation.gps_mode === "unknown"
+      ? "unknown"
+      : `${state.last_observation.gps_mode}@${state.last_observation.gps_latitude !== null && state.last_observation.gps_longitude !== null ? `${state.last_observation.gps_latitude.toFixed(4)},${state.last_observation.gps_longitude.toFixed(4)}` : "n/a"}`;
+  const gpsPlaceSummary = state.last_observation.gps_place_label ?? "unknown";
   console.log(
-    `[continuity] score=${state.continuity_score.toFixed(3)} band=${state.continuity_band} gap=${gap}s heartbeats=${state.last_observation.heartbeats ?? "?"} dominant=${state.last_observation.dominant_desire ?? "none"} attention=${state.last_observation.attention_target} presence=${companionPresenceOf(state.last_observation)} room=${roomSummary} affect=${state.affect.tone}:${state.affect.intensity.toFixed(2)} valence=${state.affect.valence.toFixed(2)} threads=${openThreads.length} thread_head=${JSON.stringify(recentOpenThreadSummary(state.unfinished_threads))} intentions=${intentions} wake=${state.should_wake ? "yes" : "no"} reason=${state.wake_reason} ruptures=${ruptures} note=${state.continuity_note}`,
+    `[continuity] score=${state.continuity_score.toFixed(3)} band=${state.continuity_band} gap=${gap}s heartbeats=${state.last_observation.heartbeats ?? "?"} dominant=${state.last_observation.dominant_desire ?? "none"} attention=${state.last_observation.attention_target} presence=${companionPresenceOf(state.last_observation)} room=${roomSummary} gps=${gpsSummary} place=${JSON.stringify(gpsPlaceSummary)} affect=${state.affect.tone}:${state.affect.intensity.toFixed(2)} valence=${state.affect.valence.toFixed(2)} threads=${openThreads.length} thread_head=${JSON.stringify(recentOpenThreadSummary(state.unfinished_threads))} intentions=${intentions} wake=${state.should_wake ? "yes" : "no"} reason=${state.wake_reason} ruptures=${ruptures} note=${state.continuity_note}`,
   );
 }
 
@@ -1531,6 +2100,11 @@ Commands:
       Update continuity self-state from interoception + desire state.
       If HOME_ASSISTANT_URL / HOME_ASSISTANT_TOKEN / HOME_ASSISTANT_PRESENCE_ENTITY_ID
       are set, also fold companion presence into the self-thread.
+      If HOME_ASSISTANT_GPS_ENTITY_PREFIX is set, fold GPS mode / coordinates into the
+      self-thread as well.
+      If CODEX_GPS_REVERSE_ENABLE=1, reverse geocoding uses Nominatim with caching.
+      Tune it via
+      CODEX_GPS_REVERSE_MIN_DISTANCE_METERS / CODEX_GPS_REVERSE_MIN_INTERVAL_SECONDS.
       If NATURE_REMO_ACCESS_TOKEN is set (directly or via room-actuator-mcp/.env),
       fold the primary Nature Remo room sensor into the self-thread too.
   status

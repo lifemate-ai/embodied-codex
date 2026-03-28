@@ -526,6 +526,32 @@ export NATURE_REMO_ROOM_SENSOR_NAME="寝室"
 各 `tick` は temperature / humidity / illuminance / motion を
 `self_state.json` と `## Continuity` に折り込みます。
 
+さらに Home Assistant の GPSD entity も continuity に取り込みたい場合は、以下を設定します。
+
+```bash
+export HOME_ASSISTANT_GPS_ENTITY_PREFIX="sensor.gps_192_168_1_198"
+```
+
+これで各 `tick` が GPS mode / 緯度経度 / 標高 / 速度 / climb / timestamp を
+`self_state.json` と `## Continuity` に折り込みます。
+
+その座標から近傍ラベルを取りたい場合は、public Nominatim を使った
+reverse geocoding も有効です。
+
+```bash
+export CODEX_GPS_REVERSE_ENABLE="1"
+export CODEX_GPS_REVERSE_MIN_DISTANCE_METERS="150"
+export CODEX_GPS_REVERSE_MIN_INTERVAL_SECONDS="600"
+# 必要なら上書き
+export CODEX_GPS_REVERSE_LANGUAGE="ja,en"
+export CODEX_GPS_REVERSE_ZOOM="14"
+export CODEX_GPS_REVERSE_USER_AGENT="embodied-codex-continuity/0.1 (+https://github.com/kmizu/embodied-codex)"
+```
+
+daemon 側で結果をキャッシュし、距離閾値と最小間隔の両方を満たした時だけ
+再解決するので、public Nominatim を乱暴に叩かずに `gps_place` として
+近傍 / locality の感覚を持たせられます。
+
 continuity 層は unfinished thread も保持できます。`thread-open` /
 `thread-resolve` で直接更新でき、`sync-last-message` は assistant の出力から
 `[CONTINUE: ...]` や `[DONE]` を拾って、次回の self-state へ持ち越します。
