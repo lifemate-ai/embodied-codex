@@ -1,0 +1,12 @@
+schema_version = "0.1.0"
+episode_root = "episodes"
+controller_backend = "mock"
+settle_ms = 0
+
+[motion]
+forward_short_ms = 250
+forward_long_ms = 500
+backward_short_ms = 250
+turn_small_deg = 30
+turn_large_deg = 90
+move_speed = 30

@@ -1,0 +1,12 @@
+[random_walk]
+steps = 32
+seed = 7
+
+[square]
+side_repeats = 1
+forward_ms = 400
+turn_deg = 90
+
+[spin]
+repeats = 8
+turn_deg = 45

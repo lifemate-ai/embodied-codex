@@ -1,0 +1,46 @@
+{
+  "rules": [
+    {
+      "antecedent": [
+        "X_HIGH",
+        "ACT_TURN_LEFT_LARGE"
+      ],
+      "consequent": "MOVE_FAIL",
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.648,
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:1",
+        "square-2026-03-28T15-59-07.898203_00-00:3"
+      ]
+    },
+    {
+      "antecedent": [
+        "X_LOW",
+        "ACT_FORWARD_LONG"
+      ],
+      "consequent": "MOVE_LARGE",
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.648,
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:0",
+        "square-2026-03-28T15-59-07.898203_00-00:6"
+      ]
+    },
+    {
+      "antecedent": [
+        "X_HIGH",
+        "ACT_TURN_LEFT_LARGE"
+      ],
+      "consequent": "ROT_LEFT",
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.648,
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:1",
+        "square-2026-03-28T15-59-07.898203_00-00:3"
+      ]
+    }
+  ]
+}

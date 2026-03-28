@@ -1,0 +1,105 @@
+{
+  "episode_ids": [
+    "calibration-2026-03-28T17-15-33.251852_00-00"
+  ],
+  "actions": [
+    {
+      "action_type": "backward_short",
+      "count": 2,
+      "success_rate": 1.0,
+      "mean_dx": -25.0,
+      "mean_dy": 0.0,
+      "mean_dtheta_deg": 0.0,
+      "std_dx": 0.0,
+      "std_dy": 0.0,
+      "std_dtheta_deg": 0.0,
+      "mean_distance": 25.0,
+      "std_distance": 0.0,
+      "suggested_scalar": 25.0
+    },
+    {
+      "action_type": "forward_long",
+      "count": 2,
+      "success_rate": 1.0,
+      "mean_dx": 50.0,
+      "mean_dy": 0.0,
+      "mean_dtheta_deg": 0.0,
+      "std_dx": 0.0,
+      "std_dy": 0.0,
+      "std_dtheta_deg": 0.0,
+      "mean_distance": 50.0,
+      "std_distance": 0.0,
+      "suggested_scalar": 50.0
+    },
+    {
+      "action_type": "forward_short",
+      "count": 2,
+      "success_rate": 1.0,
+      "mean_dx": 25.0,
+      "mean_dy": 0.0,
+      "mean_dtheta_deg": 0.0,
+      "std_dx": 0.0,
+      "std_dy": 0.0,
+      "std_dtheta_deg": 0.0,
+      "mean_distance": 25.0,
+      "std_distance": 0.0,
+      "suggested_scalar": 25.0
+    },
+    {
+      "action_type": "turn_left_large",
+      "count": 2,
+      "success_rate": 1.0,
+      "mean_dx": 0.0,
+      "mean_dy": 0.0,
+      "mean_dtheta_deg": 90.0,
+      "std_dx": 0.0,
+      "std_dy": 0.0,
+      "std_dtheta_deg": 0.0,
+      "mean_distance": 0.0,
+      "std_distance": 0.0,
+      "suggested_scalar": 90.0
+    },
+    {
+      "action_type": "turn_left_small",
+      "count": 2,
+      "success_rate": 1.0,
+      "mean_dx": 0.0,
+      "mean_dy": 0.0,
+      "mean_dtheta_deg": 30.0,
+      "std_dx": 0.0,
+      "std_dy": 0.0,
+      "std_dtheta_deg": 0.0,
+      "mean_distance": 0.0,
+      "std_distance": 0.0,
+      "suggested_scalar": 30.0
+    },
+    {
+      "action_type": "turn_right_large",
+      "count": 2,
+      "success_rate": 1.0,
+      "mean_dx": 0.0,
+      "mean_dy": 0.0,
+      "mean_dtheta_deg": -90.0,
+      "std_dx": 0.0,
+      "std_dy": 0.0,
+      "std_dtheta_deg": 0.0,
+      "mean_distance": 0.0,
+      "std_distance": 0.0,
+      "suggested_scalar": 90.0
+    },
+    {
+      "action_type": "turn_right_small",
+      "count": 2,
+      "success_rate": 1.0,
+      "mean_dx": 0.0,
+      "mean_dy": 0.0,
+      "mean_dtheta_deg": -30.0,
+      "std_dx": 0.0,
+      "std_dy": 0.0,
+      "std_dtheta_deg": 0.0,
+      "mean_distance": 0.0,
+      "std_distance": 0.0,
+      "suggested_scalar": 30.0
+    }
+  ]
+}
