@@ -268,6 +268,17 @@ uv sync --extra dev
 Windows では、`toio-py 1.1.0` と新しい `bleak` の組み合わせ向けに互換 shim を
 入れてあるので、そのままスキャンできる。
 
+`cmd.exe` から `codex mcp add` すると `run ...` の後半が落ちて `Tools: (none)`
+になることがあります。その場合は repo に入っているランチャーを使うのが安全です。
+
+```bat
+cd C:\Users\Mizushima\repo\embodied-codex\toio-mcp
+uv sync --extra dev
+run-toio-mcp.cmd
+codex mcp remove toio
+codex mcp add toio --env TOIO_SCAN_TIMEOUT=10 --env TOIO_SPEED=60 -- C:\Users\Mizushima\repo\embodied-codex\toio-mcp\run-toio-mcp.cmd
+```
+
 ### 3. Codex CLI 設定
 
 Codex CLI に MCP サーバーを直接登録：

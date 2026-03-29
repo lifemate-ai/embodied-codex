@@ -243,6 +243,17 @@ Optional environment variables:
 On Windows, `toio-mcp` applies a compatibility shim for newer `bleak` releases so
 `toio-py 1.1.0` can still scan successfully.
 
+If `cmd.exe` truncates the trailing `run ...` part during `codex mcp add` and Codex shows
+`Tools: (none)`, use the checked-in launcher instead:
+
+```bat
+cd C:\Users\Mizushima\repo\embodied-codex\toio-mcp
+uv sync --extra dev
+run-toio-mcp.cmd
+codex mcp remove toio
+codex mcp add toio --env TOIO_SCAN_TIMEOUT=10 --env TOIO_SPEED=60 -- C:\Users\Mizushima\repo\embodied-codex\toio-mcp\run-toio-mcp.cmd
+```
+
 ### 3. Codex CLI Configuration
 
 Register the MCP servers directly with Codex CLI:

@@ -61,6 +61,24 @@ codex mcp add toio --env TOIO_SCAN_TIMEOUT=10 -- \
 This server applies a small compatibility shim so it also works with newer `bleak`
 releases that expose the same object as `RawAdvData`.
 
+`cmd.exe` can also truncate the trailing `run ...` part of `codex mcp add`.
+If Codex shows `Tools: (none)`, use the checked-in launcher instead:
+
+```bat
+cd C:\Users\Mizushima\repo\embodied-codex\toio-mcp
+uv sync --extra dev
+run-toio-mcp.cmd
+codex mcp remove toio
+codex mcp add toio --env TOIO_SCAN_TIMEOUT=10 --env TOIO_SPEED=60 -- C:\Users\Mizushima\repo\embodied-codex\toio-mcp\run-toio-mcp.cmd
+codex mcp get toio
+```
+
+The final `codex mcp get toio` output should show:
+
+```text
+command: C:\Users\Mizushima\repo\embodied-codex\toio-mcp\run-toio-mcp.cmd
+```
+
 ## Tests
 
 ```bash
