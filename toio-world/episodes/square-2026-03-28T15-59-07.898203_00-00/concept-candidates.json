@@ -1,0 +1,422 @@
+{
+  "concepts": [
+    {
+      "name": "CONCEPT__NEAR_EDGE_X_MAX__X_HIGH",
+      "symbols": [
+        "NEAR_EDGE_X_MAX",
+        "X_HIGH"
+      ],
+      "support": 4,
+      "confidence": 1.0,
+      "score": 1.931,
+      "suggested_glosses": [
+        "x-max edge zone",
+        "far-right zone"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:1",
+        "square-2026-03-28T15-59-07.898203_00-00:2",
+        "square-2026-03-28T15-59-07.898203_00-00:3",
+        "square-2026-03-28T15-59-07.898203_00-00:4"
+      ]
+    },
+    {
+      "name": "CONCEPT__NEAR_EDGE_X_MIN__X_LOW",
+      "symbols": [
+        "NEAR_EDGE_X_MIN",
+        "X_LOW"
+      ],
+      "support": 4,
+      "confidence": 1.0,
+      "score": 1.931,
+      "suggested_glosses": [
+        "x-min edge zone",
+        "far-left zone"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:0",
+        "square-2026-03-28T15-59-07.898203_00-00:5",
+        "square-2026-03-28T15-59-07.898203_00-00:6",
+        "square-2026-03-28T15-59-07.898203_00-00:7"
+      ]
+    },
+    {
+      "name": "CONCEPT__NEAR_EDGE_Y_MAX__Y_HIGH",
+      "symbols": [
+        "NEAR_EDGE_Y_MAX",
+        "Y_HIGH"
+      ],
+      "support": 4,
+      "confidence": 1.0,
+      "score": 1.931,
+      "suggested_glosses": [
+        "y-max edge zone"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:3",
+        "square-2026-03-28T15-59-07.898203_00-00:4",
+        "square-2026-03-28T15-59-07.898203_00-00:5",
+        "square-2026-03-28T15-59-07.898203_00-00:6"
+      ]
+    },
+    {
+      "name": "CONCEPT__NEAR_EDGE_Y_MIN__Y_LOW",
+      "symbols": [
+        "NEAR_EDGE_Y_MIN",
+        "Y_LOW"
+      ],
+      "support": 4,
+      "confidence": 1.0,
+      "score": 1.931,
+      "suggested_glosses": [
+        "y-min edge zone"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:0",
+        "square-2026-03-28T15-59-07.898203_00-00:1",
+        "square-2026-03-28T15-59-07.898203_00-00:2",
+        "square-2026-03-28T15-59-07.898203_00-00:7"
+      ]
+    },
+    {
+      "name": "CONCEPT__HEADING_E__NEAR_EDGE_Y_MIN",
+      "symbols": [
+        "HEADING_E",
+        "NEAR_EDGE_Y_MIN"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.318,
+      "suggested_glosses": [
+        "compound state: concept__heading_e__near_edge_y_min"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:0",
+        "square-2026-03-28T15-59-07.898203_00-00:1"
+      ]
+    },
+    {
+      "name": "CONCEPT__HEADING_E__Y_LOW",
+      "symbols": [
+        "HEADING_E",
+        "Y_LOW"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.318,
+      "suggested_glosses": [
+        "compound state: concept__heading_e__y_low"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:0",
+        "square-2026-03-28T15-59-07.898203_00-00:1"
+      ]
+    },
+    {
+      "name": "CONCEPT__HEADING_N__NEAR_EDGE_X_MAX",
+      "symbols": [
+        "HEADING_N",
+        "NEAR_EDGE_X_MAX"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.318,
+      "suggested_glosses": [
+        "compound state: concept__heading_n__near_edge_x_max"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:2",
+        "square-2026-03-28T15-59-07.898203_00-00:3"
+      ]
+    },
+    {
+      "name": "CONCEPT__HEADING_N__X_HIGH",
+      "symbols": [
+        "HEADING_N",
+        "X_HIGH"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.318,
+      "suggested_glosses": [
+        "compound state: concept__heading_n__x_high"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:2",
+        "square-2026-03-28T15-59-07.898203_00-00:3"
+      ]
+    },
+    {
+      "name": "CONCEPT__HEADING_S__NEAR_EDGE_X_MIN",
+      "symbols": [
+        "HEADING_S",
+        "NEAR_EDGE_X_MIN"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.318,
+      "suggested_glosses": [
+        "compound state: concept__heading_s__near_edge_x_min"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:6",
+        "square-2026-03-28T15-59-07.898203_00-00:7"
+      ]
+    },
+    {
+      "name": "CONCEPT__HEADING_S__X_LOW",
+      "symbols": [
+        "HEADING_S",
+        "X_LOW"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.318,
+      "suggested_glosses": [
+        "compound state: concept__heading_s__x_low"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:6",
+        "square-2026-03-28T15-59-07.898203_00-00:7"
+      ]
+    },
+    {
+      "name": "CONCEPT__HEADING_W__NEAR_EDGE_Y_MAX",
+      "symbols": [
+        "HEADING_W",
+        "NEAR_EDGE_Y_MAX"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.318,
+      "suggested_glosses": [
+        "compound state: concept__heading_w__near_edge_y_max"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:4",
+        "square-2026-03-28T15-59-07.898203_00-00:5"
+      ]
+    },
+    {
+      "name": "CONCEPT__HEADING_W__Y_HIGH",
+      "symbols": [
+        "HEADING_W",
+        "Y_HIGH"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.318,
+      "suggested_glosses": [
+        "compound state: concept__heading_w__y_high"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:4",
+        "square-2026-03-28T15-59-07.898203_00-00:5"
+      ]
+    },
+    {
+      "name": "CONCEPT__MARKER_0:50__NEAR_EDGE_X_MIN",
+      "symbols": [
+        "MARKER_0:50",
+        "NEAR_EDGE_X_MIN"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.318,
+      "suggested_glosses": [
+        "concept marker_0:50 near_edge_x_min"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:5",
+        "square-2026-03-28T15-59-07.898203_00-00:6"
+      ]
+    },
+    {
+      "name": "CONCEPT__MARKER_0:50__NEAR_EDGE_Y_MAX",
+      "symbols": [
+        "MARKER_0:50",
+        "NEAR_EDGE_Y_MAX"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.318,
+      "suggested_glosses": [
+        "concept marker_0:50 near_edge_y_max"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:5",
+        "square-2026-03-28T15-59-07.898203_00-00:6"
+      ]
+    },
+    {
+      "name": "CONCEPT__MARKER_0:50__X_LOW",
+      "symbols": [
+        "MARKER_0:50",
+        "X_LOW"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.318,
+      "suggested_glosses": [
+        "concept marker_0:50 x_low"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:5",
+        "square-2026-03-28T15-59-07.898203_00-00:6"
+      ]
+    },
+    {
+      "name": "CONCEPT__MARKER_0:50__Y_HIGH",
+      "symbols": [
+        "MARKER_0:50",
+        "Y_HIGH"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.318,
+      "suggested_glosses": [
+        "concept marker_0:50 y_high"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:5",
+        "square-2026-03-28T15-59-07.898203_00-00:6"
+      ]
+    },
+    {
+      "name": "CONCEPT__MARKER_50:0__NEAR_EDGE_X_MAX",
+      "symbols": [
+        "MARKER_50:0",
+        "NEAR_EDGE_X_MAX"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.318,
+      "suggested_glosses": [
+        "concept marker_50:0 near_edge_x_max"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:1",
+        "square-2026-03-28T15-59-07.898203_00-00:2"
+      ]
+    },
+    {
+      "name": "CONCEPT__MARKER_50:0__NEAR_EDGE_Y_MIN",
+      "symbols": [
+        "MARKER_50:0",
+        "NEAR_EDGE_Y_MIN"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.318,
+      "suggested_glosses": [
+        "concept marker_50:0 near_edge_y_min"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:1",
+        "square-2026-03-28T15-59-07.898203_00-00:2"
+      ]
+    },
+    {
+      "name": "CONCEPT__MARKER_50:0__X_HIGH",
+      "symbols": [
+        "MARKER_50:0",
+        "X_HIGH"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.318,
+      "suggested_glosses": [
+        "concept marker_50:0 x_high"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:1",
+        "square-2026-03-28T15-59-07.898203_00-00:2"
+      ]
+    },
+    {
+      "name": "CONCEPT__MARKER_50:0__Y_LOW",
+      "symbols": [
+        "MARKER_50:0",
+        "Y_LOW"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.318,
+      "suggested_glosses": [
+        "concept marker_50:0 y_low"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:1",
+        "square-2026-03-28T15-59-07.898203_00-00:2"
+      ]
+    },
+    {
+      "name": "CONCEPT__MARKER_50:50__NEAR_EDGE_X_MAX",
+      "symbols": [
+        "MARKER_50:50",
+        "NEAR_EDGE_X_MAX"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.318,
+      "suggested_glosses": [
+        "concept marker_50:50 near_edge_x_max"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:3",
+        "square-2026-03-28T15-59-07.898203_00-00:4"
+      ]
+    },
+    {
+      "name": "CONCEPT__MARKER_50:50__NEAR_EDGE_Y_MAX",
+      "symbols": [
+        "MARKER_50:50",
+        "NEAR_EDGE_Y_MAX"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.318,
+      "suggested_glosses": [
+        "concept marker_50:50 near_edge_y_max"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:3",
+        "square-2026-03-28T15-59-07.898203_00-00:4"
+      ]
+    },
+    {
+      "name": "CONCEPT__MARKER_50:50__X_HIGH",
+      "symbols": [
+        "MARKER_50:50",
+        "X_HIGH"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.318,
+      "suggested_glosses": [
+        "concept marker_50:50 x_high"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:3",
+        "square-2026-03-28T15-59-07.898203_00-00:4"
+      ]
+    },
+    {
+      "name": "CONCEPT__MARKER_50:50__Y_HIGH",
+      "symbols": [
+        "MARKER_50:50",
+        "Y_HIGH"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.318,
+      "suggested_glosses": [
+        "concept marker_50:50 y_high"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:3",
+        "square-2026-03-28T15-59-07.898203_00-00:4"
+      ]
+    }
+  ]
+}

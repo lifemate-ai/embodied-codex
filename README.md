@@ -32,6 +32,7 @@ Traditional LLMs were passive — they could only see what was shown to them. Wi
 | [system-temperature-mcp](./system-temperature-mcp/) | Body temperature | System temperature monitoring | Linux sensors |
 | [mobility-mcp](./mobility-mcp/) | Legs | Use a robot vacuum as legs (Tuya control) | Tuya-compatible robot vacuums e.g. VersLife L6 (~$80) |
 | [room-actuator-mcp](./room-actuator-mcp/) | Hands, Thermoregulation | Control room lights and air conditioners via Home Assistant or Nature Remo | Home Assistant / Nature Remo |
+| [toio-mcp](./toio-mcp/) | Small hand | Roll a toio cube forward/backward, turn it, and read its pose | Sony toio Core Cube |
 
 ## Architecture
 
@@ -224,6 +225,24 @@ cp .env.example .env
 # Edit .env for either Home Assistant or Nature Remo (see room-actuator-mcp/README.md)
 ```
 
+#### toio-mcp (Small Hand)
+
+Use a `toio` cube as a small rolling hand: reach, turn, stop, and feel its pose.
+
+```bash
+cd toio-mcp
+uv sync --extra dev
+```
+
+Optional environment variables:
+
+- `TOIO_CUBE_NAME`: only connect to the named cube
+- `TOIO_SCAN_TIMEOUT`: BLE scan timeout in seconds (default `5`)
+- `TOIO_SPEED`: motion speed (default `80`)
+
+On Windows, `toio-mcp` applies a compatibility shim for newer `bleak` releases so
+`toio-py 1.1.0` can still scan successfully.
+
 ### 3. Codex CLI Configuration
 
 Register the MCP servers directly with Codex CLI:
@@ -243,6 +262,9 @@ codex mcp add system-temperature -- \
 
 codex mcp add room-actuator --env ROOM_ACTUATOR_BACKEND=home_assistant --env HOME_ASSISTANT_URL=http://homeassistant.local:8123 --env HOME_ASSISTANT_TOKEN=your-token -- \
   uv --directory "$(pwd)/room-actuator-mcp" run room-actuator-mcp
+
+codex mcp add toio --env TOIO_SCAN_TIMEOUT=10 -- \
+  uv --directory "$(pwd)/toio-mcp" run toio-mcp
 ```
 
 Codex stores these registrations in `~/.codex/config.toml`.
@@ -520,6 +542,147 @@ export CODEX_GPS_REVERSE_USER_AGENT="embodied-codex-continuity/0.1 (+https://git
 The daemon intentionally caches results and only refreshes the place label after both a
 distance threshold and a minimum interval. This keeps public Nominatim usage polite while
 still letting continuity maintain a rough `gps_place` sense such as neighbourhood / city.
+
+Continuity can also ingest companion biometrics pulled directly from Garmin Connect. The
+included fetch script writes a small snapshot JSON that continuity reads on the next
+`tick`, keeping the existing interoception heartbeat separate from the companion's actual
+physiology:
+
+```bash
+cp .env.example .env
+# preferred: point GARMINTOKENS at an existing ~/.garminconnect token cache
+# legacy fallback: set GARMIN_EMAIL / GARMIN_PASSWORD and
+# CODEX_GARMIN_ALLOW_LEGACY_PASSWORD_LOGIN=1
+uv run ./scripts/fetch-garmin-companion-biometrics.py
+```
+
+On a successful run the snapshot includes the latest Garmin-derived metrics that are
+available for the account, currently:
+
+- latest heart rate and its measurement timestamp
+- resting heart rate
+- sleep score
+- body battery
+
+The continuity hook will automatically refresh that Garmin snapshot before each `tick`
+when `uv` and the Garmin credentials/token cache are available, so the same metrics also
+flow into `autonomous-action.sh` via the `## Continuity` section.
+
+The fetch script loads the repository `.env` by default, and the continuity hook sources
+that same file before running `tick`, so you do not need to `export` those Garmin values
+manually in every shell.
+
+As of 2026-03-28, upstream `garth` reports that Garmin changed its auth flow and that new
+password logins may no longer work reliably. In practice, the Garmin path is most stable
+when you already have a reusable token cache. The continuity hook will only auto-refresh
+Garmin data after a token cache exists, unless you explicitly opt into password-based
+hook logins with `CODEX_GARMIN_ALLOW_PASSWORD_LOGIN_IN_HOOK=1`.
+
+If you already have `Health Sync -> Health Connect` working on Android, there is now a
+small local alternative that avoids Garmin bootstrap entirely:
+
+```bash
+cp .env.example .env
+# optional: set CODEX_COMPANION_BIOMETRICS_INGEST_TOKEN to require bearer auth
+python3 ./scripts/companion-biometrics-ingest.py
+```
+
+That starts a LAN receiver on `http://0.0.0.0:8765/ingest` and writes the same
+`/tmp/companion_biometrics.json` file that continuity already understands. The matching
+Android app scaffold lives in [`health-connect-companion/`](./health-connect-companion/)
+and reads the latest `READ_HEART_RATE` sample from Health Connect before `POST`ing JSON
+such as:
+
+```json
+{
+  "source": "health-connect",
+  "updated_at": "2026-03-29T04:40:00+09:00",
+  "heart_rate_bpm": 72,
+  "heart_rate_measured_at": "2026-03-29T04:39:10+09:00"
+}
+```
+
+You can protect the receiver with a bearer token via
+`CODEX_COMPANION_BIOMETRICS_INGEST_TOKEN`, and you can move the listening host/port with
+`CODEX_COMPANION_BIOMETRICS_INGEST_BIND` / `CODEX_COMPANION_BIOMETRICS_INGEST_PORT`.
+
+### Android Health Connect companion deploy
+
+Use this when Garmin direct login is unavailable but Android already has
+`Health Sync -> Health Connect` working.
+
+1. Start the local receiver:
+
+   ```bash
+   cp .env.example .env
+   python3 ./scripts/companion-biometrics-ingest.py
+   ```
+
+2. Confirm the receiver is reachable from the LAN host you will use in the Android app:
+
+   ```bash
+   curl http://127.0.0.1:8765/healthz
+   ```
+
+3. Open [`health-connect-companion/`](./health-connect-companion/) in Android Studio.
+
+   If your main Android Studio install is on Windows, opening the project from there is the
+   recommended path. Use either:
+
+   - the WSL share path, for example
+     `\\wsl$\Ubuntu\home\mizushima\embodied-codex\health-connect-companion`
+   - or a temporary Windows-side clone/copy if `\\wsl$` feels too slow
+
+   Do **not** bother installing a second Android Studio inside WSL just for this deploy.
+
+4. Use **JDK 21** for Android Studio / Gradle. This repository ships a Gradle wrapper,
+   but this development machine did not have an Android SDK and the default shell JDK here
+   was `25`, so the app scaffold was not built locally here.
+
+5. If the phone is on Android 13 or lower, make sure the Health Connect app/provider is
+   installed first. On Android 14+ it should already be part of the OS.
+
+6. Build and install the app on the phone.
+
+7. Open the app and set:
+   - `Endpoint URL` = `http://<LAN-IP-of-this-host>:8765/ingest`
+   - `Bearer token` = the same value as `CODEX_COMPANION_BIOMETRICS_INGEST_TOKEN` if you
+     enabled auth, otherwise leave it blank
+
+8. Tap `Grant permission` and allow Health Connect heart-rate access.
+
+9. If the device/provider offers background reads, tap `Grant background` too. This is
+   required for periodic WorkManager send.
+
+10. Tap `Preview latest HR` once to confirm the app can see the latest sample.
+
+11. Tap `Send to embodied-codex`.
+
+12. Verify the bridge wrote continuity input:
+
+    ```bash
+    cat /tmp/companion_biometrics.json
+    ```
+
+13. On the next continuity `tick`, the values will show up as
+    `companion_heart_rate_bpm` / `companion_biometrics_source` in the continuity state and
+    in `autonomous-action.sh`.
+
+If the manual loop works, you can then enable periodic send inside the app:
+
+- `Enable periodic send`
+- interval presets: `15m`, `30m`, `60m`
+- `WorkManager` unique periodic work
+- minimum interval: `15 minutes`
+- requires background-read permission when the provider supports it
+
+For now the Android app is intentionally minimal beyond that:
+
+- heart rate only
+- no richer scheduling policy than the built-in interval presets
+
+Once this loop is stable, the next step is to add smarter pacing / backoff instead of a
+fixed interval only.
 
 The continuity layer can also persist unfinished threads. `thread-open` / `thread-resolve`
 update them directly, and `sync-last-message` extracts `[CONTINUE: ...]` or `[DONE]` from

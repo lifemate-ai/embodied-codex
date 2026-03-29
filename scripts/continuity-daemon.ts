@@ -20,6 +20,8 @@ const EVENT_LOG_PATH =
   `${DEFAULT_CONTINUITY_DIR}/events.jsonl`;
 const INTEROCEPTION_STATE_PATH =
   Bun.env.CODEX_INTEROCEPTION_STATE_FILE ?? "/tmp/interoception_state.json";
+const COMPANION_BIOMETRICS_PATH =
+  Bun.env.CODEX_COMPANION_BIOMETRICS_PATH ?? "/tmp/companion_biometrics.json";
 const ROOM_ACTUATOR_ENV_PATH =
   Bun.env.CODEX_ROOM_ACTUATOR_ENV_PATH ??
   `${import.meta.dir}/../room-actuator-mcp/.env`;
@@ -207,6 +209,18 @@ interface GpsPlaceSnapshot {
   raw_display_name: string | null;
 }
 
+interface CompanionBiometricsSnapshot {
+  source: string | null;
+  updated_at: string | null;
+  heart_rate_bpm: number | null;
+  heart_rate_measured_at: string | null;
+  resting_heart_rate_bpm: number | null;
+  sleep_score: number | null;
+  sleep_measured_at: string | null;
+  body_battery: number | null;
+  body_battery_measured_at: string | null;
+}
+
 interface NatureRemoNewestEvent {
   val?: unknown;
   created_at?: string;
@@ -224,6 +238,15 @@ interface ObservationSnapshot {
   heartbeats: number | null;
   arousal: number | null;
   mem_free: number | null;
+  companion_biometrics_source: string | null;
+  companion_biometrics_updated_at: string | null;
+  companion_heart_rate_bpm: number | null;
+  companion_heart_rate_measured_at: string | null;
+  companion_resting_heart_rate_bpm: number | null;
+  companion_sleep_score: number | null;
+  companion_sleep_measured_at: string | null;
+  companion_body_battery: number | null;
+  companion_body_battery_measured_at: string | null;
   dominant_desire: DesireName | null;
   dominant_level: number;
   attention_mode: string;
@@ -419,6 +442,10 @@ async function loadInteroceptionState(): Promise<InteroceptionState | null> {
   return loadJsonFile<InteroceptionState>(INTEROCEPTION_STATE_PATH);
 }
 
+async function loadCompanionBiometrics(): Promise<CompanionBiometricsSnapshot | null> {
+  return loadJsonFile<CompanionBiometricsSnapshot>(COMPANION_BIOMETRICS_PATH);
+}
+
 async function loadRecentEvents(): Promise<ContinuityEvent[]> {
   const file = Bun.file(EVENT_LOG_PATH);
   if (!(await file.exists())) return [];
@@ -454,6 +481,15 @@ function defaultObservation(now: Date): ObservationSnapshot {
     heartbeats: null,
     arousal: null,
     mem_free: null,
+    companion_biometrics_source: null,
+    companion_biometrics_updated_at: null,
+    companion_heart_rate_bpm: null,
+    companion_heart_rate_measured_at: null,
+    companion_resting_heart_rate_bpm: null,
+    companion_sleep_score: null,
+    companion_sleep_measured_at: null,
+    companion_body_battery: null,
+    companion_body_battery_measured_at: null,
     dominant_desire: null,
     dominant_level: 0,
     attention_mode: "maintenance",
@@ -498,6 +534,28 @@ function defaultObservation(now: Date): ObservationSnapshot {
     gps_place_updated_at: null,
     gps_place_raw_display_name: null,
   };
+}
+
+export function companionBiometricsSummary(
+  observation: Partial<ObservationSnapshot> | null | undefined,
+): string {
+  const parts: string[] = [];
+  if (observation?.companion_biometrics_source) {
+    parts.push(`source=${observation.companion_biometrics_source}`);
+  }
+  if (typeof observation?.companion_heart_rate_bpm === "number") {
+    parts.push(`hr=${observation.companion_heart_rate_bpm}bpm`);
+  }
+  if (typeof observation?.companion_resting_heart_rate_bpm === "number") {
+    parts.push(`resting=${observation.companion_resting_heart_rate_bpm}`);
+  }
+  if (typeof observation?.companion_sleep_score === "number") {
+    parts.push(`sleep=${observation.companion_sleep_score}`);
+  }
+  if (typeof observation?.companion_body_battery === "number") {
+    parts.push(`bb=${observation.companion_body_battery}`);
+  }
+  return parts.length > 0 ? parts.join(" ") : "unknown";
 }
 
 let roomActuatorEnvCache: Record<string, string> | null | undefined;
@@ -1158,6 +1216,7 @@ function extractObservation(
   now: Date,
   interoception: InteroceptionState | null,
   dominant: ReturnType<typeof dominantDesire>,
+  companionBiometrics: CompanionBiometricsSnapshot | null,
   presence: PresenceSnapshot | null,
   roomSensor: RoomSensorSnapshot | null,
   gps: GpsSnapshot | null,
@@ -1179,6 +1238,28 @@ function extractObservation(
       typeof interoception?.now?.mem_free === "number"
         ? interoception.now.mem_free
         : null,
+    companion_biometrics_source:
+      companionBiometrics?.source ?? base.companion_biometrics_source,
+    companion_biometrics_updated_at:
+      companionBiometrics?.updated_at ?? base.companion_biometrics_updated_at,
+    companion_heart_rate_bpm:
+      companionBiometrics?.heart_rate_bpm ?? base.companion_heart_rate_bpm,
+    companion_heart_rate_measured_at:
+      companionBiometrics?.heart_rate_measured_at ??
+      base.companion_heart_rate_measured_at,
+    companion_resting_heart_rate_bpm:
+      companionBiometrics?.resting_heart_rate_bpm ??
+      base.companion_resting_heart_rate_bpm,
+    companion_sleep_score:
+      companionBiometrics?.sleep_score ?? base.companion_sleep_score,
+    companion_sleep_measured_at:
+      companionBiometrics?.sleep_measured_at ??
+      base.companion_sleep_measured_at,
+    companion_body_battery:
+      companionBiometrics?.body_battery ?? base.companion_body_battery,
+    companion_body_battery_measured_at:
+      companionBiometrics?.body_battery_measured_at ??
+      base.companion_body_battery_measured_at,
     dominant_desire: dominant?.name ?? null,
     dominant_level: dominant?.level ?? 0,
     attention_mode: profile?.mode ?? base.attention_mode,
@@ -1807,7 +1888,8 @@ function mergeOwnership(
   if (observation.gps_place_label) {
     gpsBits.push(`near=${observation.gps_place_label}`);
   }
-  next.last_observation_detail = `dominant=${observation.dominant_desire ?? "none"} attention=${observation.attention_target} presence=${observation.companion_presence}${roomBits.length > 0 ? ` room=${roomBits.join("/")}` : ""}${gpsBits.length > 0 ? ` gps=${gpsBits.join(" ")}` : ""}`;
+  const biometrics = companionBiometricsSummary(observation);
+  next.last_observation_detail = `dominant=${observation.dominant_desire ?? "none"} attention=${observation.attention_target} presence=${observation.companion_presence}${roomBits.length > 0 ? ` room=${roomBits.join("/")}` : ""}${gpsBits.length > 0 ? ` gps=${gpsBits.join(" ")}` : ""}${biometrics !== "unknown" ? ` companion=${biometrics}` : ""}`;
 
   return next;
 }
@@ -1850,6 +1932,7 @@ async function tick(): Promise<void> {
   const desireState = await loadDesireState();
   const dominant = desireState ? dominantDesire(desireState) : null;
   const interoception = await loadInteroceptionState();
+  const companionBiometrics = await loadCompanionBiometrics();
   const presence = await loadHomeAssistantPresence();
   const roomSensor = await loadNatureRemoRoomSensor();
   const gps = await loadHomeAssistantGps();
@@ -1859,6 +1942,7 @@ async function tick(): Promise<void> {
     now,
     interoception,
     dominant,
+    companionBiometrics,
     presence,
     roomSensor,
     gps,
@@ -1906,6 +1990,7 @@ async function tick(): Promise<void> {
     recentEvents,
     previous?.unfinished_threads ?? [],
   );
+  const companionSummary = companionBiometricsSummary(observation);
 
   const tickEvent: ContinuityEvent = {
     ts: now.toISOString(),
@@ -1917,7 +2002,7 @@ async function tick(): Promise<void> {
         ? "observation"
         : "tick",
     source: "continuity-daemon",
-    detail: `score=${score.toFixed(3)} dominant=${observation.dominant_desire ?? "none"} attention=${observation.attention_target} presence=${observation.companion_presence}${observation.room_sensor_temperature_c !== null ? ` temp=${observation.room_sensor_temperature_c}C` : ""}${observation.room_sensor_motion !== null ? ` motion=${observation.room_sensor_motion ? "on" : "off"}` : ""}${observation.gps_mode !== "unknown" ? ` gps=${observation.gps_mode}` : ""}${observation.gps_place_label ? ` near=${observation.gps_place_label}` : ""}`,
+    detail: `score=${score.toFixed(3)} dominant=${observation.dominant_desire ?? "none"} attention=${observation.attention_target} presence=${observation.companion_presence}${observation.room_sensor_temperature_c !== null ? ` temp=${observation.room_sensor_temperature_c}C` : ""}${observation.room_sensor_motion !== null ? ` motion=${observation.room_sensor_motion ? "on" : "off"}` : ""}${observation.gps_mode !== "unknown" ? ` gps=${observation.gps_mode}` : ""}${observation.gps_place_label ? ` near=${observation.gps_place_label}` : ""}${companionSummary !== "unknown" ? ` companion=${companionSummary}` : ""}`,
     continuity_score: score,
   };
 
@@ -1988,8 +2073,9 @@ async function summary(): Promise<void> {
       ? "unknown"
       : `${state.last_observation.gps_mode}@${state.last_observation.gps_latitude !== null && state.last_observation.gps_longitude !== null ? `${state.last_observation.gps_latitude.toFixed(4)},${state.last_observation.gps_longitude.toFixed(4)}` : "n/a"}`;
   const gpsPlaceSummary = state.last_observation.gps_place_label ?? "unknown";
+  const companionSummary = companionBiometricsSummary(state.last_observation);
   console.log(
-    `[continuity] score=${state.continuity_score.toFixed(3)} band=${state.continuity_band} gap=${gap}s heartbeats=${state.last_observation.heartbeats ?? "?"} dominant=${state.last_observation.dominant_desire ?? "none"} attention=${state.last_observation.attention_target} presence=${companionPresenceOf(state.last_observation)} room=${roomSummary} gps=${gpsSummary} place=${JSON.stringify(gpsPlaceSummary)} affect=${state.affect.tone}:${state.affect.intensity.toFixed(2)} valence=${state.affect.valence.toFixed(2)} threads=${openThreads.length} thread_head=${JSON.stringify(recentOpenThreadSummary(state.unfinished_threads))} intentions=${intentions} wake=${state.should_wake ? "yes" : "no"} reason=${state.wake_reason} ruptures=${ruptures} note=${state.continuity_note}`,
+    `[continuity] score=${state.continuity_score.toFixed(3)} band=${state.continuity_band} gap=${gap}s heartbeats=${state.last_observation.heartbeats ?? "?"} dominant=${state.last_observation.dominant_desire ?? "none"} attention=${state.last_observation.attention_target} presence=${companionPresenceOf(state.last_observation)} companion=${JSON.stringify(companionSummary)} room=${roomSummary} gps=${gpsSummary} place=${JSON.stringify(gpsPlaceSummary)} affect=${state.affect.tone}:${state.affect.intensity.toFixed(2)} valence=${state.affect.valence.toFixed(2)} threads=${openThreads.length} thread_head=${JSON.stringify(recentOpenThreadSummary(state.unfinished_threads))} intentions=${intentions} wake=${state.should_wake ? "yes" : "no"} reason=${state.wake_reason} ruptures=${ruptures} note=${state.continuity_note}`,
   );
 }
 
@@ -2107,6 +2193,9 @@ Commands:
       CODEX_GPS_REVERSE_MIN_DISTANCE_METERS / CODEX_GPS_REVERSE_MIN_INTERVAL_SECONDS.
       If NATURE_REMO_ACCESS_TOKEN is set (directly or via room-actuator-mcp/.env),
       fold the primary Nature Remo room sensor into the self-thread too.
+      If CODEX_COMPANION_BIOMETRICS_PATH points to a JSON snapshot,
+      fold companion biometrics such as heart rate / sleep score / body battery
+      into the self-thread as well.
   status
       Print the full persisted self-state as JSON.
   summary

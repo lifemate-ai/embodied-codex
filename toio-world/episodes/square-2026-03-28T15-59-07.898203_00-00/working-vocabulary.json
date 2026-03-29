@@ -1,0 +1,417 @@
+{
+  "episode_id": "square-2026-03-28T15-59-07.898203_00-00",
+  "entries": [
+    {
+      "kind": "concept",
+      "name": "CONCEPT__NEAR_EDGE_X_MAX__X_HIGH",
+      "score": 1.931,
+      "support": 4,
+      "confidence": 1.0,
+      "components": [
+        "NEAR_EDGE_X_MAX",
+        "X_HIGH"
+      ],
+      "selected_gloss": null,
+      "suggested_glosses": [
+        "x-max edge zone",
+        "far-right zone"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:1",
+        "square-2026-03-28T15-59-07.898203_00-00:2",
+        "square-2026-03-28T15-59-07.898203_00-00:3",
+        "square-2026-03-28T15-59-07.898203_00-00:4"
+      ],
+      "note": ""
+    },
+    {
+      "kind": "concept",
+      "name": "CONCEPT__NEAR_EDGE_X_MIN__X_LOW",
+      "score": 1.931,
+      "support": 4,
+      "confidence": 1.0,
+      "components": [
+        "NEAR_EDGE_X_MIN",
+        "X_LOW"
+      ],
+      "selected_gloss": null,
+      "suggested_glosses": [
+        "x-min edge zone",
+        "far-left zone"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:0",
+        "square-2026-03-28T15-59-07.898203_00-00:5",
+        "square-2026-03-28T15-59-07.898203_00-00:6",
+        "square-2026-03-28T15-59-07.898203_00-00:7"
+      ],
+      "note": ""
+    },
+    {
+      "kind": "concept",
+      "name": "CONCEPT__NEAR_EDGE_Y_MAX__Y_HIGH",
+      "score": 1.931,
+      "support": 4,
+      "confidence": 1.0,
+      "components": [
+        "NEAR_EDGE_Y_MAX",
+        "Y_HIGH"
+      ],
+      "selected_gloss": null,
+      "suggested_glosses": [
+        "y-max edge zone"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:3",
+        "square-2026-03-28T15-59-07.898203_00-00:4",
+        "square-2026-03-28T15-59-07.898203_00-00:5",
+        "square-2026-03-28T15-59-07.898203_00-00:6"
+      ],
+      "note": ""
+    },
+    {
+      "kind": "concept",
+      "name": "CONCEPT__NEAR_EDGE_Y_MIN__Y_LOW",
+      "score": 1.931,
+      "support": 4,
+      "confidence": 1.0,
+      "components": [
+        "NEAR_EDGE_Y_MIN",
+        "Y_LOW"
+      ],
+      "selected_gloss": null,
+      "suggested_glosses": [
+        "y-min edge zone"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:0",
+        "square-2026-03-28T15-59-07.898203_00-00:1",
+        "square-2026-03-28T15-59-07.898203_00-00:2",
+        "square-2026-03-28T15-59-07.898203_00-00:7"
+      ],
+      "note": ""
+    },
+    {
+      "kind": "concept",
+      "name": "CONCEPT__HEADING_E__NEAR_EDGE_Y_MIN",
+      "score": 1.318,
+      "support": 2,
+      "confidence": 1.0,
+      "components": [
+        "HEADING_E",
+        "NEAR_EDGE_Y_MIN"
+      ],
+      "selected_gloss": null,
+      "suggested_glosses": [
+        "compound state: concept__heading_e__near_edge_y_min"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:0",
+        "square-2026-03-28T15-59-07.898203_00-00:1"
+      ],
+      "note": ""
+    },
+    {
+      "kind": "macro",
+      "name": "MACRO__ACT_FORWARD_LONG__ACT_TURN_LEFT_LARGE",
+      "score": 2.253,
+      "support": 4,
+      "confidence": 1.0,
+      "components": [
+        "ACT_FORWARD_LONG",
+        "ACT_TURN_LEFT_LARGE"
+      ],
+      "selected_gloss": null,
+      "suggested_glosses": [
+        "forward long then large left turn"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:0",
+        "square-2026-03-28T15-59-07.898203_00-00:2",
+        "square-2026-03-28T15-59-07.898203_00-00:4",
+        "square-2026-03-28T15-59-07.898203_00-00:6"
+      ],
+      "note": ""
+    },
+    {
+      "kind": "macro",
+      "name": "MACRO__ACT_TURN_LEFT_LARGE__ACT_FORWARD_LONG",
+      "score": 1.941,
+      "support": 3,
+      "confidence": 1.0,
+      "components": [
+        "ACT_TURN_LEFT_LARGE",
+        "ACT_FORWARD_LONG"
+      ],
+      "selected_gloss": null,
+      "suggested_glosses": [
+        "large left turn then forward long"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:1",
+        "square-2026-03-28T15-59-07.898203_00-00:3",
+        "square-2026-03-28T15-59-07.898203_00-00:5"
+      ],
+      "note": ""
+    },
+    {
+      "kind": "macro",
+      "name": "MACRO__NEAR_EDGE_X_MAX__ACT_FORWARD_LONG__ACT_TURN_LEFT_LARGE",
+      "score": 1.538,
+      "support": 2,
+      "confidence": 1.0,
+      "components": [
+        "NEAR_EDGE_X_MAX",
+        "ACT_FORWARD_LONG",
+        "ACT_TURN_LEFT_LARGE"
+      ],
+      "selected_gloss": null,
+      "suggested_glosses": [
+        "when near x_max edge: forward long then large left turn",
+        "forward long then large left turn under near x_max edge"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:2",
+        "square-2026-03-28T15-59-07.898203_00-00:4"
+      ],
+      "note": ""
+    },
+    {
+      "kind": "macro",
+      "name": "MACRO__NEAR_EDGE_X_MAX__ACT_TURN_LEFT_LARGE__ACT_FORWARD_LONG",
+      "score": 1.538,
+      "support": 2,
+      "confidence": 1.0,
+      "components": [
+        "NEAR_EDGE_X_MAX",
+        "ACT_TURN_LEFT_LARGE",
+        "ACT_FORWARD_LONG"
+      ],
+      "selected_gloss": null,
+      "suggested_glosses": [
+        "when near x_max edge: large left turn then forward long",
+        "large left turn then forward long under near x_max edge"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:1",
+        "square-2026-03-28T15-59-07.898203_00-00:3"
+      ],
+      "note": ""
+    },
+    {
+      "kind": "macro",
+      "name": "MACRO__NEAR_EDGE_X_MIN__ACT_FORWARD_LONG__ACT_TURN_LEFT_LARGE",
+      "score": 1.538,
+      "support": 2,
+      "confidence": 1.0,
+      "components": [
+        "NEAR_EDGE_X_MIN",
+        "ACT_FORWARD_LONG",
+        "ACT_TURN_LEFT_LARGE"
+      ],
+      "selected_gloss": null,
+      "suggested_glosses": [
+        "when near x_min edge: forward long then large left turn",
+        "forward long then large left turn under near x_min edge"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:0",
+        "square-2026-03-28T15-59-07.898203_00-00:6"
+      ],
+      "note": ""
+    },
+    {
+      "kind": "rule",
+      "name": "RULE__NEAR_EDGE_X_MAX__X_HIGH__ACT_TURN_LEFT_LARGE__MOVE_FAIL",
+      "score": 1.895,
+      "support": 2,
+      "confidence": 1.0,
+      "components": [
+        "NEAR_EDGE_X_MAX",
+        "X_HIGH",
+        "ACT_TURN_LEFT_LARGE",
+        "MOVE_FAIL"
+      ],
+      "selected_gloss": null,
+      "suggested_glosses": [
+        "if near x_max edge and x high zone and large left turn, then movement fails",
+        "near x_max edge and x high zone and large left turn predicts movement fails"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:1",
+        "square-2026-03-28T15-59-07.898203_00-00:3"
+      ],
+      "note": ""
+    },
+    {
+      "kind": "rule",
+      "name": "RULE__NEAR_EDGE_X_MAX__X_HIGH__ACT_TURN_LEFT_LARGE__ROT_LEFT",
+      "score": 1.895,
+      "support": 2,
+      "confidence": 1.0,
+      "components": [
+        "NEAR_EDGE_X_MAX",
+        "X_HIGH",
+        "ACT_TURN_LEFT_LARGE",
+        "ROT_LEFT"
+      ],
+      "selected_gloss": null,
+      "suggested_glosses": [
+        "if near x_max edge and x high zone and large left turn, then rotate left",
+        "near x_max edge and x high zone and large left turn predicts rotate left"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:1",
+        "square-2026-03-28T15-59-07.898203_00-00:3"
+      ],
+      "note": ""
+    },
+    {
+      "kind": "rule",
+      "name": "RULE__NEAR_EDGE_X_MIN__X_LOW__ACT_FORWARD_LONG__MOVE_LARGE",
+      "score": 1.895,
+      "support": 2,
+      "confidence": 1.0,
+      "components": [
+        "NEAR_EDGE_X_MIN",
+        "X_LOW",
+        "ACT_FORWARD_LONG",
+        "MOVE_LARGE"
+      ],
+      "selected_gloss": null,
+      "suggested_glosses": [
+        "if near x_min edge and x low zone and forward long, then large movement",
+        "near x_min edge and x low zone and forward long predicts large movement"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:0",
+        "square-2026-03-28T15-59-07.898203_00-00:6"
+      ],
+      "note": ""
+    },
+    {
+      "kind": "symbol",
+      "name": "NEAR_EDGE_X_MAX",
+      "score": 2.747,
+      "support": 8,
+      "confidence": null,
+      "components": [
+        "NEAR_EDGE_X_MAX"
+      ],
+      "selected_gloss": null,
+      "suggested_glosses": [
+        "near x_max edge",
+        "x_max edge zone"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:0",
+        "square-2026-03-28T15-59-07.898203_00-00:1",
+        "square-2026-03-28T15-59-07.898203_00-00:1",
+        "square-2026-03-28T15-59-07.898203_00-00:2",
+        "square-2026-03-28T15-59-07.898203_00-00:2"
+      ],
+      "note": ""
+    },
+    {
+      "kind": "symbol",
+      "name": "NEAR_EDGE_X_MIN",
+      "score": 2.747,
+      "support": 8,
+      "confidence": null,
+      "components": [
+        "NEAR_EDGE_X_MIN"
+      ],
+      "selected_gloss": null,
+      "suggested_glosses": [
+        "near x_min edge",
+        "x_min edge zone"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:0",
+        "square-2026-03-28T15-59-07.898203_00-00:4",
+        "square-2026-03-28T15-59-07.898203_00-00:5",
+        "square-2026-03-28T15-59-07.898203_00-00:5",
+        "square-2026-03-28T15-59-07.898203_00-00:6"
+      ],
+      "note": ""
+    },
+    {
+      "kind": "symbol",
+      "name": "NEAR_EDGE_Y_MAX",
+      "score": 2.747,
+      "support": 8,
+      "confidence": null,
+      "components": [
+        "NEAR_EDGE_Y_MAX"
+      ],
+      "selected_gloss": null,
+      "suggested_glosses": [
+        "near y_max edge",
+        "y_max edge zone"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:2",
+        "square-2026-03-28T15-59-07.898203_00-00:3",
+        "square-2026-03-28T15-59-07.898203_00-00:3",
+        "square-2026-03-28T15-59-07.898203_00-00:4",
+        "square-2026-03-28T15-59-07.898203_00-00:4"
+      ],
+      "note": ""
+    },
+    {
+      "kind": "symbol",
+      "name": "NEAR_EDGE_Y_MIN",
+      "score": 2.747,
+      "support": 8,
+      "confidence": null,
+      "components": [
+        "NEAR_EDGE_Y_MIN"
+      ],
+      "selected_gloss": null,
+      "suggested_glosses": [
+        "near y_min edge",
+        "y_min edge zone"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:0",
+        "square-2026-03-28T15-59-07.898203_00-00:0",
+        "square-2026-03-28T15-59-07.898203_00-00:1",
+        "square-2026-03-28T15-59-07.898203_00-00:1",
+        "square-2026-03-28T15-59-07.898203_00-00:2"
+      ],
+      "note": ""
+    },
+    {
+      "kind": "symbol",
+      "name": "MOVE_FAIL",
+      "score": 2.414,
+      "support": 4,
+      "confidence": null,
+      "components": [
+        "MOVE_FAIL"
+      ],
+      "selected_gloss": null,
+      "suggested_glosses": [
+        "movement fails",
+        "stuck"
+      ],
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:1",
+        "square-2026-03-28T15-59-07.898203_00-00:3",
+        "square-2026-03-28T15-59-07.898203_00-00:5",
+        "square-2026-03-28T15-59-07.898203_00-00:7"
+      ],
+      "note": ""
+    }
+  ],
+  "stats": {
+    "concept": 5,
+    "macro": 5,
+    "rule": 3,
+    "symbol": 5
+  },
+  "sources": {
+    "episode_path": "episodes/square-2026-03-28T15-59-07.898203_00-00",
+    "gloss_path": "episodes/square-2026-03-28T15-59-07.898203_00-00/gloss-table.json"
+  }
+}

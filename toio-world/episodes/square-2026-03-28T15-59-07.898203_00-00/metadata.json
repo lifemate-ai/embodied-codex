@@ -1,0 +1,12 @@
+{
+  "schema_version": "0.1.0",
+  "episode_id": "square-2026-03-28T15-59-07.898203_00-00",
+  "created_at": "2026-03-28T15:59:07.898217+00:00",
+  "backend": "mock",
+  "policy_name": "square",
+  "notes": "",
+  "tags": [
+    "bootstrap",
+    "pattern"
+  ]
+}

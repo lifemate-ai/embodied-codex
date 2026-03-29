@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  companionBiometricsSummary,
   deriveAffect,
   haversineMeters,
   normalizePresenceState,
@@ -21,6 +22,15 @@ function makeObservation(
     heartbeats: 1,
     arousal: 0.2,
     mem_free: 0.5,
+    companion_biometrics_source: null,
+    companion_biometrics_updated_at: null,
+    companion_heart_rate_bpm: null,
+    companion_heart_rate_measured_at: null,
+    companion_resting_heart_rate_bpm: null,
+    companion_sleep_score: null,
+    companion_sleep_measured_at: null,
+    companion_body_battery: null,
+    companion_body_battery_measured_at: null,
     dominant_desire: null,
     dominant_level: 0,
     attention_mode: "maintenance",
@@ -75,6 +85,26 @@ describe("normalizePresenceState", () => {
     expect(normalizePresenceState("off")).toBe("absent");
     expect(normalizePresenceState("clear")).toBe("absent");
     expect(normalizePresenceState("unavailable")).toBe("unknown");
+  });
+});
+
+describe("companionBiometricsSummary", () => {
+  test("formats available Garmin-derived metrics compactly", () => {
+    expect(
+      companionBiometricsSummary(
+        makeObservation({
+          companion_biometrics_source: "garmin-connect",
+          companion_heart_rate_bpm: 72,
+          companion_resting_heart_rate_bpm: 57,
+          companion_sleep_score: 84,
+          companion_body_battery: 61,
+        }),
+      ),
+    ).toBe("source=garmin-connect hr=72bpm resting=57 sleep=84 bb=61");
+  });
+
+  test("returns unknown when no companion biometrics are present", () => {
+    expect(companionBiometricsSummary(makeObservation())).toBe("unknown");
   });
 });
 

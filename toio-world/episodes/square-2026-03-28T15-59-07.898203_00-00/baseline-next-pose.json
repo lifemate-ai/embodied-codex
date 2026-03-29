@@ -1,0 +1,17 @@
+{
+  "episode_id": "square-2026-03-28T15-59-07.898203_00-00",
+  "action_means": {
+    "forward_long": {
+      "count": 4,
+      "mean_dx": 0.0,
+      "mean_dy": 0.0,
+      "mean_dtheta_deg": 0.0
+    },
+    "turn_left_large": {
+      "count": 4,
+      "mean_dx": 0.0,
+      "mean_dy": 0.0,
+      "mean_dtheta_deg": 0.0
+    }
+  }
+}

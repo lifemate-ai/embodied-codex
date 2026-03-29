@@ -1,0 +1,15 @@
+{
+  "schema_version": "0.1.0",
+  "episode_id": "calibration-2026-03-28T17-15-33.251852_00-00",
+  "created_at": "2026-03-28T17:15:33.251879+00:00",
+  "backend": "mock",
+  "policy_name": "calibration_sweep",
+  "notes": "Repeated discrete action sweep for action-profile fitting.",
+  "tags": [
+    "bootstrap",
+    "calibration"
+  ],
+  "config_paths": {
+    "world": "configs/world.toml"
+  }
+}

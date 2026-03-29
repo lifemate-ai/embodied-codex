@@ -1,0 +1,178 @@
+{
+  "entries": [
+    {
+      "symbol": "ACT_FORWARD_LONG",
+      "gloss": null,
+      "note": "",
+      "examples": []
+    },
+    {
+      "symbol": "ACT_TURN_LEFT_LARGE",
+      "gloss": null,
+      "note": "",
+      "examples": []
+    },
+    {
+      "symbol": "HEADING_E",
+      "gloss": null,
+      "note": "",
+      "examples": []
+    },
+    {
+      "symbol": "HEADING_N",
+      "gloss": null,
+      "note": "",
+      "examples": []
+    },
+    {
+      "symbol": "HEADING_S",
+      "gloss": null,
+      "note": "",
+      "examples": []
+    },
+    {
+      "symbol": "HEADING_W",
+      "gloss": null,
+      "note": "",
+      "examples": []
+    },
+    {
+      "symbol": "MARKER_0:0",
+      "gloss": null,
+      "note": "",
+      "examples": []
+    },
+    {
+      "symbol": "MARKER_0:50",
+      "gloss": null,
+      "note": "",
+      "examples": []
+    },
+    {
+      "symbol": "MARKER_50:0",
+      "gloss": null,
+      "note": "",
+      "examples": []
+    },
+    {
+      "symbol": "MARKER_50:50",
+      "gloss": null,
+      "note": "",
+      "examples": []
+    },
+    {
+      "symbol": "MARKER_origin",
+      "gloss": null,
+      "note": "",
+      "examples": []
+    },
+    {
+      "symbol": "MOVE_FAIL",
+      "gloss": null,
+      "note": "",
+      "examples": []
+    },
+    {
+      "symbol": "MOVE_LARGE",
+      "gloss": null,
+      "note": "",
+      "examples": []
+    },
+    {
+      "symbol": "NEAR_EDGE_X_MAX",
+      "gloss": null,
+      "note": "",
+      "examples": []
+    },
+    {
+      "symbol": "NEAR_EDGE_X_MIN",
+      "gloss": null,
+      "note": "",
+      "examples": []
+    },
+    {
+      "symbol": "NEAR_EDGE_Y_MAX",
+      "gloss": null,
+      "note": "",
+      "examples": []
+    },
+    {
+      "symbol": "NEAR_EDGE_Y_MIN",
+      "gloss": null,
+      "note": "",
+      "examples": []
+    },
+    {
+      "symbol": "POS_X_MINUS",
+      "gloss": null,
+      "note": "",
+      "examples": []
+    },
+    {
+      "symbol": "POS_X_PLUS",
+      "gloss": null,
+      "note": "",
+      "examples": []
+    },
+    {
+      "symbol": "POS_Y_MINUS",
+      "gloss": null,
+      "note": "",
+      "examples": []
+    },
+    {
+      "symbol": "POS_Y_PLUS",
+      "gloss": null,
+      "note": "",
+      "examples": []
+    },
+    {
+      "symbol": "ROT_LEFT",
+      "gloss": null,
+      "note": "",
+      "examples": []
+    },
+    {
+      "symbol": "ROT_NONE",
+      "gloss": null,
+      "note": "",
+      "examples": []
+    },
+    {
+      "symbol": "ROT_RIGHT",
+      "gloss": null,
+      "note": "",
+      "examples": []
+    },
+    {
+      "symbol": "TRANSITION_VALID",
+      "gloss": null,
+      "note": "",
+      "examples": []
+    },
+    {
+      "symbol": "X_HIGH",
+      "gloss": null,
+      "note": "",
+      "examples": []
+    },
+    {
+      "symbol": "X_LOW",
+      "gloss": null,
+      "note": "",
+      "examples": []
+    },
+    {
+      "symbol": "Y_HIGH",
+      "gloss": null,
+      "note": "",
+      "examples": []
+    },
+    {
+      "symbol": "Y_LOW",
+      "gloss": null,
+      "note": "",
+      "examples": []
+    }
+  ]
+}

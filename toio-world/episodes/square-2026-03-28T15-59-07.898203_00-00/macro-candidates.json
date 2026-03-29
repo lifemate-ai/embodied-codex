@@ -1,0 +1,241 @@
+{
+  "macros": [
+    {
+      "name": "MACRO__ACT_FORWARD_LONG__ACT_TURN_LEFT_LARGE",
+      "action_symbols": [
+        "ACT_FORWARD_LONG",
+        "ACT_TURN_LEFT_LARGE"
+      ],
+      "preconditions": [],
+      "support": 4,
+      "confidence": 1.0,
+      "score": 2.253,
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:0",
+        "square-2026-03-28T15-59-07.898203_00-00:2",
+        "square-2026-03-28T15-59-07.898203_00-00:4",
+        "square-2026-03-28T15-59-07.898203_00-00:6"
+      ]
+    },
+    {
+      "name": "MACRO__ACT_TURN_LEFT_LARGE__ACT_FORWARD_LONG",
+      "action_symbols": [
+        "ACT_TURN_LEFT_LARGE",
+        "ACT_FORWARD_LONG"
+      ],
+      "preconditions": [],
+      "support": 3,
+      "confidence": 1.0,
+      "score": 1.941,
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:1",
+        "square-2026-03-28T15-59-07.898203_00-00:3",
+        "square-2026-03-28T15-59-07.898203_00-00:5"
+      ]
+    },
+    {
+      "name": "MACRO__NEAR_EDGE_X_MAX__ACT_FORWARD_LONG__ACT_TURN_LEFT_LARGE",
+      "action_symbols": [
+        "ACT_FORWARD_LONG",
+        "ACT_TURN_LEFT_LARGE"
+      ],
+      "preconditions": [
+        "NEAR_EDGE_X_MAX"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.538,
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:2",
+        "square-2026-03-28T15-59-07.898203_00-00:4"
+      ]
+    },
+    {
+      "name": "MACRO__NEAR_EDGE_X_MAX__ACT_TURN_LEFT_LARGE__ACT_FORWARD_LONG",
+      "action_symbols": [
+        "ACT_TURN_LEFT_LARGE",
+        "ACT_FORWARD_LONG"
+      ],
+      "preconditions": [
+        "NEAR_EDGE_X_MAX"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.538,
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:1",
+        "square-2026-03-28T15-59-07.898203_00-00:3"
+      ]
+    },
+    {
+      "name": "MACRO__NEAR_EDGE_X_MIN__ACT_FORWARD_LONG__ACT_TURN_LEFT_LARGE",
+      "action_symbols": [
+        "ACT_FORWARD_LONG",
+        "ACT_TURN_LEFT_LARGE"
+      ],
+      "preconditions": [
+        "NEAR_EDGE_X_MIN"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.538,
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:0",
+        "square-2026-03-28T15-59-07.898203_00-00:6"
+      ]
+    },
+    {
+      "name": "MACRO__NEAR_EDGE_Y_MAX__ACT_FORWARD_LONG__ACT_TURN_LEFT_LARGE",
+      "action_symbols": [
+        "ACT_FORWARD_LONG",
+        "ACT_TURN_LEFT_LARGE"
+      ],
+      "preconditions": [
+        "NEAR_EDGE_Y_MAX"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.538,
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:4",
+        "square-2026-03-28T15-59-07.898203_00-00:6"
+      ]
+    },
+    {
+      "name": "MACRO__NEAR_EDGE_Y_MAX__ACT_TURN_LEFT_LARGE__ACT_FORWARD_LONG",
+      "action_symbols": [
+        "ACT_TURN_LEFT_LARGE",
+        "ACT_FORWARD_LONG"
+      ],
+      "preconditions": [
+        "NEAR_EDGE_Y_MAX"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.538,
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:3",
+        "square-2026-03-28T15-59-07.898203_00-00:5"
+      ]
+    },
+    {
+      "name": "MACRO__NEAR_EDGE_Y_MIN__ACT_FORWARD_LONG__ACT_TURN_LEFT_LARGE",
+      "action_symbols": [
+        "ACT_FORWARD_LONG",
+        "ACT_TURN_LEFT_LARGE"
+      ],
+      "preconditions": [
+        "NEAR_EDGE_Y_MIN"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.538,
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:0",
+        "square-2026-03-28T15-59-07.898203_00-00:2"
+      ]
+    },
+    {
+      "name": "MACRO__X_HIGH__ACT_FORWARD_LONG__ACT_TURN_LEFT_LARGE",
+      "action_symbols": [
+        "ACT_FORWARD_LONG",
+        "ACT_TURN_LEFT_LARGE"
+      ],
+      "preconditions": [
+        "X_HIGH"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.538,
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:2",
+        "square-2026-03-28T15-59-07.898203_00-00:4"
+      ]
+    },
+    {
+      "name": "MACRO__X_HIGH__ACT_TURN_LEFT_LARGE__ACT_FORWARD_LONG",
+      "action_symbols": [
+        "ACT_TURN_LEFT_LARGE",
+        "ACT_FORWARD_LONG"
+      ],
+      "preconditions": [
+        "X_HIGH"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.538,
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:1",
+        "square-2026-03-28T15-59-07.898203_00-00:3"
+      ]
+    },
+    {
+      "name": "MACRO__X_LOW__ACT_FORWARD_LONG__ACT_TURN_LEFT_LARGE",
+      "action_symbols": [
+        "ACT_FORWARD_LONG",
+        "ACT_TURN_LEFT_LARGE"
+      ],
+      "preconditions": [
+        "X_LOW"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.538,
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:0",
+        "square-2026-03-28T15-59-07.898203_00-00:6"
+      ]
+    },
+    {
+      "name": "MACRO__Y_HIGH__ACT_FORWARD_LONG__ACT_TURN_LEFT_LARGE",
+      "action_symbols": [
+        "ACT_FORWARD_LONG",
+        "ACT_TURN_LEFT_LARGE"
+      ],
+      "preconditions": [
+        "Y_HIGH"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.538,
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:4",
+        "square-2026-03-28T15-59-07.898203_00-00:6"
+      ]
+    },
+    {
+      "name": "MACRO__Y_HIGH__ACT_TURN_LEFT_LARGE__ACT_FORWARD_LONG",
+      "action_symbols": [
+        "ACT_TURN_LEFT_LARGE",
+        "ACT_FORWARD_LONG"
+      ],
+      "preconditions": [
+        "Y_HIGH"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.538,
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:3",
+        "square-2026-03-28T15-59-07.898203_00-00:5"
+      ]
+    },
+    {
+      "name": "MACRO__Y_LOW__ACT_FORWARD_LONG__ACT_TURN_LEFT_LARGE",
+      "action_symbols": [
+        "ACT_FORWARD_LONG",
+        "ACT_TURN_LEFT_LARGE"
+      ],
+      "preconditions": [
+        "Y_LOW"
+      ],
+      "support": 2,
+      "confidence": 1.0,
+      "score": 1.538,
+      "examples": [
+        "square-2026-03-28T15-59-07.898203_00-00:0",
+        "square-2026-03-28T15-59-07.898203_00-00:2"
+      ]
+    }
+  ]
+}

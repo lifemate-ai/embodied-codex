@@ -31,6 +31,7 @@
 | [system-temperature-mcp](./system-temperature-mcp/) | 体温感覚 | システム温度監視 | Linux sensors |
 | [mobility-mcp](./mobility-mcp/) | 足 | ロボット掃除機を足として使う（Tuya制御） | VersLife L6 等 Tuya 対応ロボット掃除機（約12,000円〜） |
 | [room-actuator-mcp](./room-actuator-mcp/) | 手・体温調節 | Home Assistant または Nature Remo 経由で部屋の照明とエアコンを制御 | Home Assistant / Nature Remo |
+| [toio-mcp](./toio-mcp/) | 小さな手 | toio キューブを前後移動・旋回・停止させ、姿勢を読む | Sony toio Core Cube |
 
 ## アーキテクチャ
 
@@ -248,6 +249,25 @@ cp .env.example .env
 # Home Assistant または Nature Remo 向けに .env を編集（詳細は room-actuator-mcp/README.md）
 ```
 
+#### toio-mcp（小さな手）
+
+`toio` キューブを小さな rolling hand として使うための MCP。前後移動・旋回・停止と、
+現在姿勢の読み出しを行う。
+
+```bash
+cd toio-mcp
+uv sync --extra dev
+```
+
+任意の環境変数:
+
+- `TOIO_CUBE_NAME`: 接続対象のキューブ名を固定したい時
+- `TOIO_SCAN_TIMEOUT`: BLE スキャン秒数（デフォルト `5`）
+- `TOIO_SPEED`: 移動速度（デフォルト `80`）
+
+Windows では、`toio-py 1.1.0` と新しい `bleak` の組み合わせ向けに互換 shim を
+入れてあるので、そのままスキャンできる。
+
 ### 3. Codex CLI 設定
 
 Codex CLI に MCP サーバーを直接登録：
@@ -267,6 +287,9 @@ codex mcp add system-temperature -- \
 
 codex mcp add room-actuator --env ROOM_ACTUATOR_BACKEND=home_assistant --env HOME_ASSISTANT_URL=http://homeassistant.local:8123 --env HOME_ASSISTANT_TOKEN=your-token -- \
   uv --directory "$(pwd)/room-actuator-mcp" run room-actuator-mcp
+
+codex mcp add toio --env TOIO_SCAN_TIMEOUT=10 -- \
+  uv --directory "$(pwd)/toio-mcp" run toio-mcp
 ```
 
 登録先は `~/.codex/config.toml`。
@@ -551,6 +574,150 @@ export CODEX_GPS_REVERSE_USER_AGENT="embodied-codex-continuity/0.1 (+https://git
 daemon 側で結果をキャッシュし、距離閾値と最小間隔の両方を満たした時だけ
 再解決するので、public Nominatim を乱暴に叩かずに `gps_place` として
 近傍 / locality の感覚を持たせられます。
+
+continuity は Garmin Connect から引いた companion biometrics も取り込めます。
+付属の fetch script が小さい JSON snapshot を書き出し、次回 `tick` で
+読み込むので、既存の interoception heartbeat と先輩の実心拍は別の層のまま
+扱えます。
+
+```bash
+cp .env.example .env
+# 推奨: 既存の ~/.garminconnect token cache を GARMINTOKENS に向ける
+# 旧方式の fallback を試すなら GARMIN_EMAIL / GARMIN_PASSWORD と
+# CODEX_GARMIN_ALLOW_LEGACY_PASSWORD_LOGIN=1 を設定
+uv run ./scripts/fetch-garmin-companion-biometrics.py
+```
+
+成功時は、アカウント側で見えている Garmin 算出値のうち、いまは次を
+snapshot に入れます。
+
+- 最新心拍とその測定時刻
+- 安静時心拍
+- 睡眠スコア
+- Body Battery
+
+`uv` と Garmin の認証情報 / token cache が使えるなら、
+continuity hook は各 `tick` 前にこの Garmin snapshot も自動更新するので、
+同じ値が `autonomous-action.sh` の `## Continuity` にも流れます。
+
+fetch script はデフォルトで repo ルートの `.env` を読み、continuity hook も
+同じ `.env` を source してから `tick` を回すので、毎回 shell で `export`
+し直す必要はありません。
+
+2026-03-28 時点で upstream の `garth` は、Garmin 側の auth flow 変更により
+新規 password login がもう安定して動かない可能性を告知しています。なので、
+Garmin 経路はいまのところ既存 token cache があるときにいちばん安定します。
+continuity hook は token cache ができたあとにだけ Garmin を自動更新し、
+`CODEX_GARMIN_ALLOW_PASSWORD_LOGIN_IN_HOOK=1` を明示しない限り、password ベースの
+自動ログインはしません。
+
+もし Android 側で `Health Sync -> Health Connect` がすでに通っているなら、
+Garmin bootstrap を経由せずに companion biometrics を continuity へ流す
+ローカル経路も使えます。
+
+```bash
+cp .env.example .env
+# bearer token を付けたいなら CODEX_COMPANION_BIOMETRICS_INGEST_TOKEN を設定
+python3 ./scripts/companion-biometrics-ingest.py
+```
+
+これで `http://0.0.0.0:8765/ingest` に LAN 受け口が立ち、continuity がそのまま
+読める `/tmp/companion_biometrics.json` へ書き込みます。対応する Android app の
+足場は [`health-connect-companion/`](./health-connect-companion/) にあり、
+Health Connect の `READ_HEART_RATE` から最新心拍を読んで、たとえば次の JSON を
+POST する想定です。
+
+```json
+{
+  "source": "health-connect",
+  "updated_at": "2026-03-29T04:40:00+09:00",
+  "heart_rate_bpm": 72,
+  "heart_rate_measured_at": "2026-03-29T04:39:10+09:00"
+}
+```
+
+`CODEX_COMPANION_BIOMETRICS_INGEST_TOKEN` を入れれば bearer token 付きにでき、
+listen 先も `CODEX_COMPANION_BIOMETRICS_INGEST_BIND` /
+`CODEX_COMPANION_BIOMETRICS_INGEST_PORT` で変えられます。
+
+### Android Health Connect companion の deploy 手順
+
+Garmin 直 login が詰まっていても、Android 側で
+`Health Sync -> Health Connect` まで通っていれば、この経路で continuity に
+心拍を入れられます。
+
+1. まずローカル受け皿を起動する:
+
+   ```bash
+   cp .env.example .env
+   python3 ./scripts/companion-biometrics-ingest.py
+   ```
+
+2. 受け皿が生きているか確認する:
+
+   ```bash
+   curl http://127.0.0.1:8765/healthz
+   ```
+
+3. [`health-connect-companion/`](./health-connect-companion/) を Android Studio で開く。
+
+   Android Studio を普段 Windows 側に入れているなら、そのまま Windows 側で開くのが
+   推奨です。project path はたとえば次のどちらか。
+
+   - `\\wsl$\Ubuntu\home\mizushima\embodied-codex\health-connect-companion`
+   - もし `\\wsl$` 経由が重ければ、一時的に Windows 側へ clone / copy
+
+   companion app を deploy するためだけに、WSL 側へ Android Studio をもう一個
+   入れる必要はありません。
+
+4. Android Studio / Gradle は **JDK 21 前提** で使う。
+   この repo には Gradle wrapper まで入れてありますが、今の開発マシンには
+   Android SDK が無く、shell の既定 JDK も `25` だったので、
+   app 自体の build はここでは未検証です。
+
+5. 端末が Android 13 以下なら、先に Health Connect provider / app を
+   入れておく。Android 14 以上なら OS 側にあるはずです。
+
+6. app を build して端末へ install する。
+
+7. app を開いて次を設定する:
+   - `Endpoint URL` = `http://<このホストのLAN IP>:8765/ingest`
+   - `Bearer token` = auth を有効にしたなら
+     `CODEX_COMPANION_BIOMETRICS_INGEST_TOKEN` と同じ値。不要なら空欄
+
+8. `Grant permission` を押して、Health Connect の心拍 permission を許可する。
+
+9. provider 側が対応していれば `Grant background` も押す。
+   これは WorkManager での定期送信に必要です。
+
+10. `Preview latest HR` を一度押して、最新サンプルが読めることを確認する。
+
+11. `Send to embodied-codex` を押す。
+
+12. 受け皿が continuity 入力を書いたことを確認する:
+
+    ```bash
+    cat /tmp/companion_biometrics.json
+    ```
+
+13. 次回の continuity `tick` で、
+    `companion_heart_rate_bpm` / `companion_biometrics_source` として
+    self-state と `autonomous-action.sh` に流れます。
+
+manual loop が通ったら、app 内で periodic send も有効化できます。
+
+- `Enable periodic send`
+- 間隔プリセットは `15m`, `30m`, `60m`
+- `WorkManager` の unique periodic work を使う
+- 最小間隔は **15分**
+- provider が対応している場合は background read permission が必要
+
+今の Android app は intentionally minimal で、
+
+- 心拍のみ
+- 定期送信は固定プリセットのみ
+
+です。ここが安定したら、次は固定間隔だけでなく pacing / backoff を足します。
 
 continuity 層は unfinished thread も保持できます。`thread-open` /
 `thread-resolve` で直接更新でき、`sync-last-message` は assistant の出力から

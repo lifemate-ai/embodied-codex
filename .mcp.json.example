@@ -40,6 +40,15 @@
         "GO2RTC_URL": "http://localhost:1984",
         "GO2RTC_STREAM": "tapo_cam"
       }
+    },
+    "toio": {
+      "command": "uv",
+      "args": ["run", "--directory", "toio-mcp", "toio-mcp"],
+      "env": {
+        "TOIO_CUBE_NAME": "your-cube-name",
+        "TOIO_SCAN_TIMEOUT": "10",
+        "TOIO_SPEED": "80"
+      }
     }
   }
 }
