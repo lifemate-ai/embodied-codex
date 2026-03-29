@@ -213,27 +213,15 @@ class TTSMCP:
 
                 if use_streaming:
                     el_engine: ElevenLabsEngine = engine  # type: ignore[assignment]
-                    sentences = el_engine.stream_sentences(text)
-                    if len(sentences) > 1:
-                        sentence_streams = [
-                            (s, el_engine.stream(s, **kwargs)) for s in sentences
-                        ]
-                        audio_bytes, play_status = await asyncio.to_thread(
-                            playback.stream_sentences_with_mpv,
-                            sentence_streams,
-                            pb.pulse_sink,
-                            pb.pulse_server,
-                        )
-                    else:
-                        audio_stream = await asyncio.to_thread(
-                            el_engine.stream, text, **kwargs,
-                        )
-                        audio_bytes, play_status = await asyncio.to_thread(
-                            playback.stream_with_mpv,
-                            audio_stream,
-                            pb.pulse_sink,
-                            pb.pulse_server,
-                        )
+                    audio_stream = await asyncio.to_thread(
+                        el_engine.stream, text, **kwargs,
+                    )
+                    audio_bytes, play_status = await asyncio.to_thread(
+                        playback.stream_with_local_player,
+                        audio_stream,
+                        pb.pulse_sink,
+                        pb.pulse_server,
+                    )
                     audio_format = (
                         kwargs.get("output_format", "mp3_44100_128").split("_", 1)[0]
                     )

@@ -13,6 +13,10 @@ from pathlib import Path
 from typing import Iterator
 from urllib.parse import quote
 
+PIPEWIRE_STREAM_RATE = "44100"
+PIPEWIRE_STREAM_CHANNELS = "1"
+PIPEWIRE_STREAM_FORMAT = "s16"
+
 
 def save_audio(audio_bytes: bytes, audio_format: str, save_dir: str) -> str:
     """Save audio bytes to disk. Returns file path."""
@@ -104,13 +108,151 @@ def stream_sentences_with_mpv(
 
 
 def can_stream() -> bool:
-    """Check if mpv is available for streaming."""
-    return shutil.which("mpv") is not None
+    """Check if a local streaming backend is available."""
+    return shutil.which("mpv") is not None or (
+        shutil.which("ffmpeg") is not None and shutil.which("pw-play") is not None
+    )
+
+
+def _start_pw_play_stream() -> tuple[subprocess.Popen, subprocess.Popen]:
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        raise FileNotFoundError("ffmpeg not found")
+
+    pw_play = shutil.which("pw-play")
+    if not pw_play:
+        raise FileNotFoundError("pw-play not found")
+
+    decoder = subprocess.Popen(
+        [
+            ffmpeg,
+            "-loglevel",
+            "error",
+            "-i",
+            "pipe:0",
+            "-f",
+            "s16le",
+            "-acodec",
+            "pcm_s16le",
+            "-ar",
+            PIPEWIRE_STREAM_RATE,
+            "-ac",
+            PIPEWIRE_STREAM_CHANNELS,
+            "pipe:1",
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    player = subprocess.Popen(
+        [
+            pw_play,
+            "--rate",
+            PIPEWIRE_STREAM_RATE,
+            "--channels",
+            PIPEWIRE_STREAM_CHANNELS,
+            "--format",
+            PIPEWIRE_STREAM_FORMAT,
+            "-",
+        ],
+        stdin=decoder.stdout,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+    )
+    if decoder.stdout is not None:
+        decoder.stdout.close()
+    return decoder, player
+
+
+def _finish_pw_play_stream(
+    decoder: subprocess.Popen, player: subprocess.Popen,
+) -> None:
+    decoder.wait()
+    player.wait()
+
+    decoder_stderr = b""
+    if decoder.stderr is not None:
+        decoder_stderr = decoder.stderr.read()
+
+    player_stderr = b""
+    if player.stderr is not None:
+        player_stderr = player.stderr.read()
+
+    if decoder.returncode != 0:
+        error = decoder_stderr.decode(errors="replace").strip()
+        raise RuntimeError(f"ffmpeg streaming decode failed: {error or decoder.returncode}")
+    if player.returncode != 0:
+        error = player_stderr.decode(errors="replace").strip()
+        raise RuntimeError(f"pw-play streaming failed: {error or player.returncode}")
+
+
+def _stream_with_pw_play(audio_stream: Iterator[bytes]) -> tuple[bytes, str]:
+    decoder, player = _start_pw_play_stream()
+    chunks: list[bytes] = []
+
+    assert decoder.stdin is not None
+    try:
+        for chunk in audio_stream:
+            chunks.append(chunk)
+            decoder.stdin.write(chunk)
+            decoder.stdin.flush()
+    finally:
+        decoder.stdin.close()
+
+    _finish_pw_play_stream(decoder, player)
+    return b"".join(chunks), "streamed via pw-play"
+
+
+def stream_with_local_player(
+    audio_stream: Iterator[bytes],
+    pulse_sink: str | None = None,
+    pulse_server: str | None = None,
+) -> tuple[bytes, str]:
+    """Stream audio to the best available local player."""
+    if shutil.which("mpv") is not None:
+        return stream_with_mpv(audio_stream, pulse_sink, pulse_server)
+    return _stream_with_pw_play(audio_stream)
+
+
+def stream_sentences_with_local_player(
+    sentence_streams: list[tuple[str, Iterator[bytes]]],
+    pulse_sink: str | None = None,
+    pulse_server: str | None = None,
+) -> tuple[bytes, str]:
+    """Stream sentence chunks sequentially to the best available local player."""
+    if shutil.which("mpv") is not None:
+        return stream_sentences_with_mpv(sentence_streams, pulse_sink, pulse_server)
+
+    all_chunks: list[bytes] = []
+    for _sentence, audio_stream in sentence_streams:
+        chunks, _status = _stream_with_pw_play(audio_stream)
+        all_chunks.append(chunks)
+    count = len(sentence_streams)
+    return b"".join(all_chunks), f"streamed via pw-play ({count} sentences)"
 
 
 # ---------------------------------------------------------------------------
 # Local playback (file-based)
 # ---------------------------------------------------------------------------
+
+def _ensure_wav(file_path: str, player_name: str) -> tuple[str | None, str | None]:
+    if file_path.lower().endswith((".wav", ".wave")):
+        return file_path, None
+
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        return None, f"{player_name} needs WAV (ffmpeg missing)"
+
+    wav_path = str(Path(file_path).with_suffix(".wav"))
+    result = subprocess.run(
+        [ffmpeg, "-y", "-i", file_path, wav_path],
+        check=False, capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        error = result.stderr.strip() or result.stdout.strip()
+        return None, f"{player_name} conversion failed: {error}"
+    return wav_path, None
+
 
 def _play_with_paplay(
     file_path: str, pulse_sink: str | None, pulse_server: str | None,
@@ -119,19 +261,9 @@ def _play_with_paplay(
     if not paplay:
         return False, "paplay not available"
 
-    wav_path = file_path
-    if not file_path.lower().endswith((".wav", ".wave")):
-        ffmpeg = shutil.which("ffmpeg")
-        if not ffmpeg:
-            return False, "paplay needs WAV (ffmpeg missing)"
-        wav_path = str(Path(file_path).with_suffix(".wav"))
-        result = subprocess.run(
-            [ffmpeg, "-y", "-i", file_path, wav_path],
-            check=False, capture_output=True, text=True,
-        )
-        if result.returncode != 0:
-            error = result.stderr.strip() or result.stdout.strip()
-            return False, f"paplay conversion failed: {error}"
+    wav_path, error = _ensure_wav(file_path, "paplay")
+    if error:
+        return False, error
 
     env = os.environ.copy()
     if pulse_sink:
@@ -151,6 +283,24 @@ def _play_with_paplay(
         return True, f"played via paplay{suffix}"
     error = result.stderr.strip() or result.stdout.strip()
     return False, f"paplay failed: {error}"
+
+
+def _play_with_pw_play(file_path: str) -> tuple[bool, str]:
+    pw_play = shutil.which("pw-play")
+    if not pw_play:
+        return False, "pw-play not available"
+
+    wav_path, error = _ensure_wav(file_path, "pw-play")
+    if error:
+        return False, error
+
+    result = subprocess.run(
+        [pw_play, wav_path], check=False, capture_output=True, text=True,
+    )
+    if result.returncode == 0:
+        return True, "played via pw-play"
+    error = result.stderr.strip() or result.stdout.strip()
+    return False, f"pw-play failed: {error}"
 
 
 def play_audio(
@@ -183,6 +333,14 @@ def play_audio(
             last_error = "afplay not available"
             if playback == "afplay":
                 return last_error
+
+    if playback in {"auto", "pw-play", "pwplay", "pipewire"}:
+        ok, message = _play_with_pw_play(file_path)
+        if ok:
+            return message
+        last_error = message
+        if playback in {"pw-play", "pwplay", "pipewire"}:
+            return message
 
     if playback in {"auto", "paplay"}:
         ok, message = _play_with_paplay(file_path, pulse_sink, pulse_server)

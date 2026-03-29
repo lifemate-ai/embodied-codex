@@ -61,7 +61,7 @@
         "ELEVENLABS_OUTPUT_FORMAT": "mp3_44100_128",
         "VOICEVOX_URL": "http://localhost:50021",
         "VOICEVOX_SPEAKER": "3",
-        "TTS_PLAYBACK": "ffplay",
+        "TTS_PLAYBACK": "pw-play",
         "GO2RTC_URL": "http://localhost:1984",
         "GO2RTC_STREAM": "tapo_cam"
       }

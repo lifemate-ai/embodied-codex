@@ -4,6 +4,7 @@ import importlib.machinery
 import json
 from unittest.mock import MagicMock, patch
 
+from tts_mcp import playback as playback_module
 from tts_mcp.engines.elevenlabs import ElevenLabsEngine, _split_sentences
 from tts_mcp.engines.voicevox import VoicevoxEngine
 from tts_mcp.playback import play_audio
@@ -178,3 +179,68 @@ class TestPlayback:
     def test_play_audio_disabled(self):
         result = play_audio(b"audio", "/tmp/test.mp3", "none", None, None)
         assert result == "playback disabled"
+
+    @patch("tts_mcp.playback.subprocess.run")
+    @patch("tts_mcp.playback.shutil.which")
+    def test_play_audio_pw_play_success(self, mock_which, mock_run):
+        def fake_which(name):
+            if name == "pw-play":
+                return "/usr/bin/pw-play"
+            return None
+
+        mock_which.side_effect = fake_which
+        mock_run.return_value = MagicMock(returncode=0, stderr="", stdout="")
+
+        result = play_audio(b"audio", "/tmp/test.wav", "pw-play", None, None)
+        assert result == "played via pw-play"
+        mock_run.assert_called_once_with(
+            ["/usr/bin/pw-play", "/tmp/test.wav"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+    @patch("tts_mcp.playback.subprocess.run")
+    @patch("tts_mcp.playback.shutil.which")
+    def test_play_audio_auto_prefers_pw_play(self, mock_which, mock_run):
+        def fake_which(name):
+            if name == "pw-play":
+                return "/usr/bin/pw-play"
+            return None
+
+        mock_which.side_effect = fake_which
+        mock_run.return_value = MagicMock(returncode=0, stderr="", stdout="")
+
+        result = play_audio(b"audio", "/tmp/test.wav", "auto", None, None)
+        assert result == "played via pw-play"
+
+    @patch("tts_mcp.playback.shutil.which")
+    def test_can_stream_with_pipewire_backend(self, mock_which):
+        def fake_which(name):
+            if name in {"ffmpeg", "pw-play"}:
+                return f"/usr/bin/{name}"
+            return None
+
+        mock_which.side_effect = fake_which
+        assert playback_module.can_stream() is True
+
+    @patch("tts_mcp.playback._stream_with_pw_play")
+    @patch("tts_mcp.playback.shutil.which")
+    def test_stream_with_local_player_prefers_pw_play_when_mpv_missing(
+        self,
+        mock_which,
+        mock_stream_with_pw_play,
+    ):
+        def fake_which(name):
+            if name == "mpv":
+                return None
+            if name in {"ffmpeg", "pw-play"}:
+                return f"/usr/bin/{name}"
+            return None
+
+        mock_which.side_effect = fake_which
+        mock_stream_with_pw_play.return_value = (b"audio", "streamed via pw-play")
+
+        result = playback_module.stream_with_local_player(iter([b"chunk"]))
+        assert result == (b"audio", "streamed via pw-play")
+        mock_stream_with_pw_play.assert_called_once()

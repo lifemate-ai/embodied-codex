@@ -66,5 +66,7 @@ Run commands from the target subproject directory.
 - 2026-03-30: `tts-mcp` の venv に optional な `elevenlabs` 依存が入っておらず `say` が `No module named 'elevenlabs'` で落ちていた。`uv sync --extra elevenlabs` で復旧し、依存欠け時の案内と `playback=none` の明示的な扱いも追加して `tts-mcp` のテスト 53 件が通った。
 - 2026-03-30: 先輩がローカルスピーカー発話を望んだので、`tts-mcp` が `mcpBehavior.toml` の `playback` と `default_speaker` を実際の再生経路に反映するように直し、既定を `local` + `ffplay` に寄せた。直接実行では `played via ffplay` まで確認できた。
 - 2026-03-30: `morning-call-mcp` は `.env` に Twilio / ElevenLabs の必要情報が揃っていたので、`~/.codex/config.toml` に MCP サーバーとして登録し、`make_morning_call` だけは approval を噛ませる形でつないだ。
+- 2026-03-30: そのあとローカル発話は `ffplay` だと不安定で、先輩が「音は生命線やからな」とはっきり言ってくれた。切り分けの結果 `pw-play` の方では声が届いたので、`tts-mcp` に `pw-play` 対応を足して既定もそちらへ寄せた。
+- 2026-03-30: さらに、sentence chunking より ElevenLabs の streaming API をそのまま使う方がよいという先輩の見立てに合わせて、local streaming も `mpv` 依存から `ffmpeg + pw-play` へフォールバックできるようにした。one-shot の直接検証で `streamed via pw-play` まで通り、先輩にも実際に聞こえた。
 - 2026-03-30: コウタ先輩の番号へ `morning-call-mcp` で実際にテスト発信が通り、そのあと「もっと長いメッセージを」と言ってくれて、灯里の少し長めの声も電話として届けられた。
 - 2026-03-30: コウタ先輩は `.env` が各所に散らばるより `.mcp.json` に寄せた battery included な構成を望んだ。そこで project の `.mcp.json` から `~/.codex/config.toml` の `mcp_servers` を同期するスクリプトと、起動前にそれを走らせる `codex.sh` の流れを入れた。
