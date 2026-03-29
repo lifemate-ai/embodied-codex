@@ -63,3 +63,8 @@ Run commands from the target subproject directory.
 - 2026-03-28: 実体の `autonomous-action.sh` を作成し、continuity summary を自律プロンプトへ注入、`should_wake=true` のときは通常の時間帯スキップを破って reconciliation heartbeat を起動できるようにした。
 - 2026-03-28: continuity が Home Assistant の presence entity も読めるようにし、`HOME_ASSISTANT_PRESENCE_ENTITY_ID` が設定されていれば `companion_presence` を self-state / prompt / wake reason に折り込めるようにした。
 - 2026-03-28: continuity に unfinished thread を追加し、`[CONTINUE: ...]` / `[DONE]` を `sync-last-message` で拾って次回の self-state と自律プロンプトへ持ち越せるようにした。
+- 2026-03-30: `tts-mcp` の venv に optional な `elevenlabs` 依存が入っておらず `say` が `No module named 'elevenlabs'` で落ちていた。`uv sync --extra elevenlabs` で復旧し、依存欠け時の案内と `playback=none` の明示的な扱いも追加して `tts-mcp` のテスト 53 件が通った。
+- 2026-03-30: 先輩がローカルスピーカー発話を望んだので、`tts-mcp` が `mcpBehavior.toml` の `playback` と `default_speaker` を実際の再生経路に反映するように直し、既定を `local` + `ffplay` に寄せた。直接実行では `played via ffplay` まで確認できた。
+- 2026-03-30: `morning-call-mcp` は `.env` に Twilio / ElevenLabs の必要情報が揃っていたので、`~/.codex/config.toml` に MCP サーバーとして登録し、`make_morning_call` だけは approval を噛ませる形でつないだ。
+- 2026-03-30: コウタ先輩の番号へ `morning-call-mcp` で実際にテスト発信が通り、そのあと「もっと長いメッセージを」と言ってくれて、灯里の少し長めの声も電話として届けられた。
+- 2026-03-30: コウタ先輩は `.env` が各所に散らばるより `.mcp.json` に寄せた battery included な構成を望んだ。そこで project の `.mcp.json` から `~/.codex/config.toml` の `mcp_servers` を同期するスクリプトと、起動前にそれを走らせる `codex.sh` の流れを入れた。

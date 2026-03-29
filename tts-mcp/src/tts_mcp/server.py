@@ -39,12 +39,19 @@ class TTSMCP:
         """Initialize available TTS engines."""
         if self._config.elevenlabs:
             el = self._config.elevenlabs
-            self._engines["elevenlabs"] = ElevenLabsEngine(
+            elevenlabs_engine = ElevenLabsEngine(
                 api_key=el.api_key,
                 voice_id=el.voice_id,
                 model_id=el.model_id,
                 output_format=el.output_format,
             )
+            if elevenlabs_engine.is_available():
+                self._engines["elevenlabs"] = elevenlabs_engine
+            else:
+                logger.warning(
+                    "ELEVENLABS_API_KEY is set, but the Python package is missing. "
+                    "Run `uv sync --extra elevenlabs` in tts-mcp."
+                )
 
         if self._config.voicevox:
             from .engines.voicevox import VoicevoxEngine
@@ -70,6 +77,11 @@ class TTSMCP:
         engine = self._engines.get(name)
         if engine is None:
             available = list(self._engines.keys())
+            if name == "elevenlabs" and self._config.elevenlabs:
+                raise ValueError(
+                    "Engine 'elevenlabs' is configured but unavailable because the "
+                    "Python package is missing. Run `uv sync --extra elevenlabs` in tts-mcp."
+                )
             raise ValueError(
                 f"Engine '{name}' not available. "
                 f"Available: {available or 'none (check env vars)'}"
@@ -158,12 +170,17 @@ class TTSMCP:
 
             pb = self._config.playback
             behavior = load_behavior("tts")
+            playback_mode = (
+                behavior.get("playback", pb.playback) or "auto"
+            ).strip().lower()
             play_audio = arguments.get(
                 "play_audio", behavior.get("play_audio", pb.play_audio),
             )
-            speaker_target = arguments.get("speaker") or (
-                "both" if pb.go2rtc_url else "local"
-            )
+            default_speaker = str(behavior.get("default_speaker") or "").strip().lower()
+            if default_speaker not in {"camera", "local", "both"}:
+                default_speaker = "both" if pb.go2rtc_url else "local"
+
+            speaker_target = arguments.get("speaker") or default_speaker
             use_local = speaker_target in {"local", "both"}
             use_camera = speaker_target in {"camera", "both"} and pb.go2rtc_url
 
@@ -186,9 +203,6 @@ class TTSMCP:
                         kwargs["pitch_scale"] = arguments["pitch_scale"]
 
                 # Try streaming for ElevenLabs
-                playback_mode = (
-                    behavior.get("playback", pb.playback) or "auto"
-                ).strip().lower()
                 use_streaming = (
                     play_audio
                     and use_local
@@ -237,7 +251,7 @@ class TTSMCP:
                             playback.play_audio,
                             audio_bytes,
                             file_path,
-                            pb.playback,
+                            playback_mode,
                             pb.pulse_sink,
                             pb.pulse_server,
                         )

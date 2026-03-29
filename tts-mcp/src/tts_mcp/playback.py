@@ -162,6 +162,9 @@ def play_audio(
 ) -> str:
     """Play audio locally using the best available player."""
     playback = (playback or "auto").strip().lower()
+    if playback in {"none", "off", "disabled"}:
+        return "playback disabled"
+
     last_error: str | None = None
 
     if playback in {"auto", "afplay"}:

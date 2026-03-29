@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import importlib
+import importlib.util
 import logging
 import re
 from typing import Any
@@ -41,9 +43,15 @@ class ElevenLabsEngine:
 
     def _get_client(self) -> Any:
         if self._client is None:
-            from elevenlabs.client import ElevenLabs
+            try:
+                elevenlabs_client = importlib.import_module("elevenlabs.client")
+            except ModuleNotFoundError as exc:
+                raise RuntimeError(
+                    "ElevenLabs package is not installed. "
+                    "Run `uv sync --extra elevenlabs` in tts-mcp."
+                ) from exc
 
-            self._client = ElevenLabs(api_key=self._api_key)
+            self._client = elevenlabs_client.ElevenLabs(api_key=self._api_key)
         return self._client
 
     @property
@@ -51,7 +59,7 @@ class ElevenLabsEngine:
         return "elevenlabs"
 
     def is_available(self) -> bool:
-        return bool(self._api_key)
+        return bool(self._api_key) and importlib.util.find_spec("elevenlabs") is not None
 
     def synthesize(self, text: str, **kwargs: Any) -> tuple[bytes, str]:
         """Synthesize text to audio bytes.

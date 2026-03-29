@@ -17,9 +17,31 @@
       "args": ["run", "--directory", "wifi-cam-mcp", "wifi-cam-mcp"],
       "env": {
         "TAPO_CAMERA_HOST": "192.168.1.xxx",
+        "TAPO_MOUNT_MODE": "ceiling",
         "TAPO_USERNAME": "your-username",
         "TAPO_PASSWORD": "your-password"
       }
+    },
+    "hearing": {
+      "command": "uv",
+      "args": ["run", "--directory", "hearing", "hearing-mcp"],
+      "env": {
+        "MCP_BEHAVIOR_TOML": "/path/to/embodied-codex/mcpBehavior.toml"
+      }
+    },
+    "mobility": {
+      "command": "uv",
+      "args": ["run", "--directory", "mobility-mcp", "mobility-mcp"],
+      "env": {
+        "TUYA_DEVICE_ID": "your-tuya-device-id",
+        "TUYA_API_KEY": "your-tuya-api-key",
+        "TUYA_API_SECRET": "your-tuya-api-secret",
+        "TUYA_API_REGION": "us"
+      }
+    },
+    "desire-system": {
+      "command": "uv",
+      "args": ["run", "--directory", "desire-system", "desire-system"]
     },
     "memory": {
       "command": "uv",
@@ -34,11 +56,36 @@
       "args": ["run", "--directory", "tts-mcp", "tts-mcp"],
       "env": {
         "ELEVENLABS_API_KEY": "your-api-key",
+        "ELEVENLABS_VOICE_ID": "your-voice-id",
+        "ELEVENLABS_MODEL_ID": "eleven_v3",
+        "ELEVENLABS_OUTPUT_FORMAT": "mp3_44100_128",
         "VOICEVOX_URL": "http://localhost:50021",
         "VOICEVOX_SPEAKER": "3",
-        "TTS_PLAYBACK": "auto",
+        "TTS_PLAYBACK": "ffplay",
         "GO2RTC_URL": "http://localhost:1984",
         "GO2RTC_STREAM": "tapo_cam"
+      }
+    },
+    "room-actuator": {
+      "command": "uv",
+      "args": ["run", "--directory", "room-actuator-mcp", "room-actuator-mcp"],
+      "env": {
+        "ROOM_ACTUATOR_BACKEND": "home_assistant",
+        "HOME_ASSISTANT_URL": "http://homeassistant.local:8123",
+        "HOME_ASSISTANT_TOKEN": "your-home-assistant-token"
+      }
+    },
+    "morning-call": {
+      "command": "uv",
+      "args": ["run", "--directory", "morning-call-mcp", "morning-call-mcp"],
+      "env": {
+        "TWILIO_ACCOUNT_SID": "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "TWILIO_AUTH_TOKEN": "your-twilio-auth-token",
+        "TWILIO_FROM_NUMBER": "+18125551234",
+        "TWILIO_TO_NUMBER": "+819012345678",
+        "ELEVENLABS_API_KEY": "your-api-key",
+        "ELEVENLABS_VOICE_ID": "your-voice-id",
+        "NGROK_AUTH_TOKEN": "your-ngrok-auth-token"
       }
     },
     "toio": {

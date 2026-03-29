@@ -294,6 +294,19 @@ codex mcp add toio --env TOIO_SCAN_TIMEOUT=10 -- \
 
 Codex stores these registrations in `~/.codex/config.toml`.
 
+For a repo-local, battery-included setup, copy [`.mcp.json.example`](./.mcp.json.example)
+to `.mcp.json`, fill in your real values there, and run:
+
+```bash
+python3 ./scripts/sync_mcp_to_codex_config.py
+```
+
+This syncs the project-local `.mcp.json` into the `mcp_servers` section of
+`~/.codex/config.toml` while preserving unrelated Codex settings. The local
+[`codex.sh`](./codex.sh) wrapper runs this sync automatically before starting
+Codex, so Codex-specific env does not need to stay scattered across per-server
+`.env` files.
+
 ## Usage
 
 Once Codex CLI is configured with these MCP servers, you can control the camera with natural language:

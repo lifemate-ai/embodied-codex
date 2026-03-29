@@ -319,6 +319,18 @@ codex mcp add toio --env TOIO_SCAN_TIMEOUT=10 -- \
 
 登録先は `~/.codex/config.toml`。
 
+repo ローカルで battery included に寄せるなら、[`.mcp.json.example`](./.mcp.json.example)
+を `.mcp.json` にコピーして実値を埋め、次を実行:
+
+```bash
+python3 ./scripts/sync_mcp_to_codex_config.py
+```
+
+これで project ローカルの `.mcp.json` から `~/.codex/config.toml` の `mcp_servers`
+セクションを同期できる。Codex の他設定は保持される。さらに
+[`codex.sh`](./codex.sh) は起動前にこの同期を自動実行するので、Codex 用の環境変数を
+各サブプロジェクトの `.env` に散らしたままにしなくてよい。
+
 ## 使い方
 
 Codex CLI に MCP を登録すると、自然言語でカメラを操作できる：

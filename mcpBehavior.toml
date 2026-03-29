@@ -11,7 +11,8 @@ onvif_port = 2020
 
 [tts]
 default_engine = ""            # "elevenlabs", "voicevox", or "" (auto)
-playback = "auto"              # "auto", "stream", "paplay", "ffplay"
+default_speaker = "local"      # "local", "camera", or "both"
+playback = "ffplay"            # "auto", "stream", "paplay", "ffplay"
 play_audio = true
 save_dir = "/tmp/tts-mcp"
 voice_id = "uYp2UUDeS74htH10iY2e"
