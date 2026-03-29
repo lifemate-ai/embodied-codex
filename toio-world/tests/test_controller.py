@@ -1,4 +1,8 @@
-from toio_world.controller import ToioController
+import sys
+import types
+from unittest.mock import patch
+
+from toio_world.controller import ToioController, _patch_bleak_winrt_raw_adv_data_compat
 from toio_world.schema import ActionCommand
 
 
@@ -89,3 +93,17 @@ def test_toio_controller_disconnects_cube() -> None:
     cube = controller._cube
     controller.disconnect()
     assert cube.connected is False
+
+
+def test_winrt_raw_adv_data_compat_aliases_public_name() -> None:
+    scanner = types.ModuleType("bleak.backends.winrt.scanner")
+
+    class RawAdvData:
+        pass
+
+    scanner.RawAdvData = RawAdvData
+    with patch("toio_world.controller.platform.system", return_value="Windows"):
+        with patch.dict(sys.modules, {"bleak.backends.winrt.scanner": scanner}, clear=False):
+            _patch_bleak_winrt_raw_adv_data_compat()
+
+    assert scanner._RawAdvData is RawAdvData

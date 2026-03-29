@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import os
+import platform
 from abc import ABC, abstractmethod
 from typing import Any, Callable
 
@@ -20,6 +21,30 @@ def _normalize_theta(theta_deg: float) -> float:
     if value > 180.0:
         value -= 360.0
     return value
+
+
+def _patch_bleak_winrt_raw_adv_data_compat() -> None:
+    """
+    Bridge toio-py's old WinRT expectation to newer bleak releases.
+
+    toio-py 1.1.0 imports the private symbol `_RawAdvData`, while newer
+    bleak exposes the same named tuple as `RawAdvData`.
+    """
+
+    if platform.system() != "Windows":
+        return
+
+    try:
+        from bleak.backends.winrt import scanner as winrt_scanner
+    except Exception:
+        return
+
+    if hasattr(winrt_scanner, "_RawAdvData"):
+        return
+
+    raw_adv_data = getattr(winrt_scanner, "RawAdvData", None)
+    if raw_adv_data is not None:
+        setattr(winrt_scanner, "_RawAdvData", raw_adv_data)
 
 
 class BaseController(ABC):
@@ -156,6 +181,7 @@ class ToioController(BaseController):
             raise RuntimeError(
                 "toio-py is not installed. Run `uv sync` to install hardware dependencies."
             )
+        _patch_bleak_winrt_raw_adv_data_compat()
         return SimpleCube(**kwargs)
 
     def connect(self) -> None:
