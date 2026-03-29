@@ -14,7 +14,7 @@ from .config import MemoryConfig, ServerConfig
 from .episode import EpisodeManager
 from .memory import MemoryStore
 from .sensory import SensoryIntegration
-from .types import CANONICAL_CATEGORIES, CameraPosition, DEFAULT_CATEGORY
+from .types import CANONICAL_CATEGORIES, DEFAULT_CATEGORY, CameraPosition
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
