@@ -52,6 +52,18 @@ class _FakeCube:
         self.stopped = True
 
 
+class _FlakyBatteryCube(_FakeCube):
+    def __init__(self, **kwargs: object) -> None:
+        super().__init__(**kwargs)
+        self.battery_reads = 0
+
+    def get_battery_level(self) -> int:
+        self.battery_reads += 1
+        if self.battery_reads > 1:
+            raise OSError("battery read cancelled")
+        return self.battery
+
+
 def test_controller_connects_reads_and_moves() -> None:
     controller = ToioCubeController(
         cube_factory=_FakeCube,
@@ -96,6 +108,19 @@ def test_controller_stop_action() -> None:
 
     assert result["ok"] is True
     assert cube.stopped is True
+
+
+def test_controller_keeps_last_battery_on_transient_read_failure() -> None:
+    controller = ToioCubeController(
+        cube_factory=_FlakyBatteryCube,
+        direction_enum=_FakeDirection,
+    )
+
+    initial = controller.connect()
+    assert initial["battery"]["percent"] == 97
+
+    state = controller.read_state()
+    assert state["battery"]["percent"] == 97
 
 
 def test_winrt_raw_adv_data_compat_aliases_public_name() -> None:

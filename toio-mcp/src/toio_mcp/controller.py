@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import platform
 from typing import Any, Callable
@@ -10,6 +11,9 @@ try:
 except ImportError:  # pragma: no cover - exercised via graceful fallback
     SimpleCube = None
     ToioDirection = None
+
+
+logger = logging.getLogger(__name__)
 
 
 def _normalize_theta(theta_deg: float | None) -> float | None:
@@ -79,6 +83,7 @@ class ToioCubeController:
         self._cube_factory = cube_factory or self._default_cube_factory
         self._direction_enum = direction_enum or ToioDirection
         self._cube: Any | None = None
+        self._last_battery_percent: int | None = None
 
     def _default_cube_factory(self, **kwargs: Any) -> Any:
         if SimpleCube is None:
@@ -143,7 +148,7 @@ class ToioCubeController:
     def _read_state_from_cube(self) -> dict[str, Any]:
         position = self._cube.get_current_position()
         orientation = self._cube.get_orientation()
-        battery_level = self._cube.get_battery_level()
+        battery_level = self._read_battery_level()
         touched_card = self._cube.get_touched_card()
 
         return {
@@ -169,3 +174,19 @@ class ToioCubeController:
                 "percent": int(battery_level) if battery_level is not None else None,
             },
         }
+
+    def _read_battery_level(self) -> int | None:
+        try:
+            battery_level = self._cube.get_battery_level()
+        except OSError as exc:
+            logger.warning(
+                "Failed to read toio battery level; continuing with last known value: %s",
+                exc,
+            )
+            return self._last_battery_percent
+
+        if battery_level is None:
+            return self._last_battery_percent
+
+        self._last_battery_percent = int(battery_level)
+        return self._last_battery_percent

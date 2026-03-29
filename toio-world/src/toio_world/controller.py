@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import math
 import os
 import platform
@@ -14,6 +15,9 @@ try:
 except ImportError:  # pragma: no cover - exercised via graceful fallback
     SimpleCube = None
     ToioDirection = None
+
+
+logger = logging.getLogger(__name__)
 
 
 def _normalize_theta(theta_deg: float) -> float:
@@ -242,7 +246,7 @@ class ToioController(BaseController):
         self._ensure_connected()
         position = self._cube.get_current_position()
         orientation = self._cube.get_orientation()
-        battery_level = self._cube.get_battery_level()
+        battery_level = self._read_battery_level()
         touched_card = self._cube.get_touched_card()
 
         pose = Pose(
@@ -261,6 +265,16 @@ class ToioController(BaseController):
             else self._last_state.battery.percent
         )
         return CubeState(pose=pose, marker=marker, battery=battery)
+
+    def _read_battery_level(self) -> int | None:
+        try:
+            return self._cube.get_battery_level()
+        except OSError as exc:
+            logger.warning(
+                "Failed to read toio battery level; continuing with last known value: %s",
+                exc,
+            )
+            return self._last_state.battery.percent
 
     def _marker_from_cube(
         self,
