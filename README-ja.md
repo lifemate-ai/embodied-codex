@@ -279,6 +279,20 @@ codex mcp remove toio
 codex mcp add toio --env TOIO_SCAN_TIMEOUT=10 --env TOIO_SPEED=60 -- C:\Users\Mizushima\repo\embodied-codex\toio-mcp\run-toio-mcp.cmd
 ```
 
+WSL 側の Codex から Windows 上の toio を触りたい時は、HTTP 版ランチャーを使います。
+
+```bat
+cd C:\Users\Mizushima\repo\embodied-codex\toio-mcp
+uv sync --extra dev
+run-toio-mcp-http.cmd
+```
+
+そのうえで反対側から URL 登録します。
+
+```bash
+codex mcp add toio-http --url http://127.0.0.1:8766/mcp
+```
+
 ### 3. Codex CLI 設定
 
 Codex CLI に MCP サーバーを直接登録：

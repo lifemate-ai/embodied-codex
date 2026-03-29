@@ -48,6 +48,12 @@ Run locally:
 uv run toio-mcp
 ```
 
+Run as streamable HTTP:
+
+```bash
+uv run python -m toio_mcp.server --transport http --host 0.0.0.0 --port 8766
+```
+
 Register with Codex CLI:
 
 ```bash
@@ -77,6 +83,20 @@ The final `codex mcp get toio` output should show:
 
 ```text
 command: C:\Users\Mizushima\repo\embodied-codex\toio-mcp\run-toio-mcp.cmd
+```
+
+If you want WSL Codex to reach a Windows-hosted toio server, use the HTTP launcher:
+
+```bat
+cd C:\Users\Mizushima\repo\embodied-codex\toio-mcp
+uv sync --extra dev
+run-toio-mcp-http.cmd
+```
+
+Then register it from the other side with a URL such as:
+
+```bash
+codex mcp add toio-http --url http://127.0.0.1:8766/mcp
 ```
 
 ## Tests

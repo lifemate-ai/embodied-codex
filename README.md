@@ -254,6 +254,20 @@ codex mcp remove toio
 codex mcp add toio --env TOIO_SCAN_TIMEOUT=10 --env TOIO_SPEED=60 -- C:\Users\Mizushima\repo\embodied-codex\toio-mcp\run-toio-mcp.cmd
 ```
 
+If you want WSL Codex to reach a Windows-hosted toio server, start the HTTP variant:
+
+```bat
+cd C:\Users\Mizushima\repo\embodied-codex\toio-mcp
+uv sync --extra dev
+run-toio-mcp-http.cmd
+```
+
+Then register the MCP server by URL from the other side:
+
+```bash
+codex mcp add toio-http --url http://127.0.0.1:8766/mcp
+```
+
 ### 3. Codex CLI Configuration
 
 Register the MCP servers directly with Codex CLI:

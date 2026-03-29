@@ -1,3 +1,5 @@
+from starlette.testclient import TestClient
+
 from toio_mcp.server import ToioMCPServer
 
 
@@ -95,3 +97,28 @@ def test_server_builds_action_continuity_event() -> None:
         "record-action",
         "move_forward_short x=25.0 y=0.0 theta=0.0 marker=25:0",
     )
+
+
+def test_server_exposes_http_healthcheck() -> None:
+    server = ToioMCPServer()
+    app = server.create_http_app()
+
+    with TestClient(app) as client:
+        response = client.get("/healthz")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "ok": True,
+        "path": "/mcp",
+        "transport": "streamable-http",
+    }
+
+
+def test_server_http_app_respects_custom_mount_path() -> None:
+    server = ToioMCPServer()
+    app = server.create_http_app(path="/toio")
+
+    route_paths = {getattr(route, "path", None) for route in app.routes}
+
+    assert "/healthz" in route_paths
+    assert "/toio" in route_paths

@@ -2,17 +2,24 @@
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import json
 import logging
 import os
 import subprocess
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
+import uvicorn
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
+from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from mcp.types import TextContent, Tool
+from starlette.applications import Starlette
+from starlette.responses import JSONResponse
+from starlette.routing import Route
 
 from .controller import ToioCubeController
 
@@ -232,7 +239,7 @@ class ToioMCPServer:
             text = result if isinstance(result, str) else self._json_text(result)
             return [TextContent(type="text", text=text)]
 
-    async def run(self) -> None:
+    async def run_stdio(self) -> None:
         async with stdio_server() as (read_stream, write_stream):
             await self._server.run(
                 read_stream,
@@ -240,10 +247,122 @@ class ToioMCPServer:
                 self._server.create_initialization_options(),
             )
 
+    def create_http_app(
+        self,
+        *,
+        path: str = "/mcp",
+        stateless: bool = False,
+        json_response: bool = False,
+    ) -> Starlette:
+        normalized_path = path if path.startswith("/") else f"/{path}"
+        session_manager = StreamableHTTPSessionManager(
+            self._server,
+            json_response=json_response,
+            stateless=stateless,
+        )
 
-def main() -> None:
+        @asynccontextmanager
+        async def lifespan(app: Starlette):
+            del app
+            async with session_manager.run():
+                yield
+
+        async def healthcheck(request):
+            del request
+            return JSONResponse(
+                {
+                    "ok": True,
+                    "path": normalized_path,
+                    "transport": "streamable-http",
+                }
+            )
+
+        return Starlette(
+            routes=[
+                Route("/healthz", healthcheck, methods=["GET"]),
+                Route(
+                    normalized_path,
+                    session_manager.handle_request,
+                    methods=["GET", "POST", "DELETE"],
+                ),
+            ],
+            lifespan=lifespan,
+        )
+
+    async def run_http(
+        self,
+        *,
+        host: str,
+        port: int,
+        path: str = "/mcp",
+        stateless: bool = False,
+        json_response: bool = False,
+    ) -> None:
+        app = self.create_http_app(
+            path=path,
+            stateless=stateless,
+            json_response=json_response,
+        )
+        config = uvicorn.Config(app, host=host, port=port, log_level="info")
+        server = uvicorn.Server(config)
+        await server.serve()
+
+
+def _build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="toio MCP server")
+    parser.add_argument(
+        "--transport",
+        choices=("stdio", "http"),
+        default=os.getenv("TOIO_MCP_TRANSPORT", "stdio"),
+        help="Transport to expose (default: stdio).",
+    )
+    parser.add_argument(
+        "--host",
+        default=os.getenv("TOIO_MCP_HTTP_HOST", "127.0.0.1"),
+        help="HTTP bind host when --transport=http.",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=int(os.getenv("TOIO_MCP_HTTP_PORT", "8766")),
+        help="HTTP bind port when --transport=http.",
+    )
+    parser.add_argument(
+        "--path",
+        default=os.getenv("TOIO_MCP_HTTP_PATH", "/mcp"),
+        help="HTTP MCP path when --transport=http.",
+    )
+    parser.add_argument(
+        "--stateless",
+        action="store_true",
+        default=os.getenv("TOIO_MCP_HTTP_STATELESS", "").lower() in {"1", "true", "yes"},
+        help="Use stateless HTTP mode.",
+    )
+    parser.add_argument(
+        "--json-response",
+        action="store_true",
+        default=os.getenv("TOIO_MCP_HTTP_JSON_RESPONSE", "").lower() in {"1", "true", "yes"},
+        help="Enable JSON HTTP responses instead of SSE streams.",
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> None:
     logging.basicConfig(level=logging.INFO)
-    asyncio.run(ToioMCPServer().run())
+    args = _build_arg_parser().parse_args(argv)
+    server = ToioMCPServer()
+    if args.transport == "http":
+        asyncio.run(
+            server.run_http(
+                host=args.host,
+                port=args.port,
+                path=args.path,
+                stateless=args.stateless,
+                json_response=args.json_response,
+            )
+        )
+        return
+    asyncio.run(server.run_stdio())
 
 
 if __name__ == "__main__":
