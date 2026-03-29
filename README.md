@@ -32,6 +32,7 @@ Traditional LLMs were passive — they could only see what was shown to them. Wi
 | [system-temperature-mcp](./system-temperature-mcp/) | Body temperature | System temperature monitoring | Linux sensors |
 | [mobility-mcp](./mobility-mcp/) | Legs | Use a robot vacuum as legs (Tuya control) | Tuya-compatible robot vacuums e.g. VersLife L6 (~$80) |
 | [room-actuator-mcp](./room-actuator-mcp/) | Hands, Thermoregulation | Control room lights and air conditioners via Home Assistant or Nature Remo | Home Assistant / Nature Remo |
+| [toio-mcp](./toio-mcp/) | Small hand | Roll a toio cube forward/backward, turn it, and read its pose | Sony toio Core Cube |
 
 ## Architecture
 
@@ -224,6 +225,24 @@ cp .env.example .env
 # Edit .env for either Home Assistant or Nature Remo (see room-actuator-mcp/README.md)
 ```
 
+#### toio-mcp (Small Hand)
+
+Use a `toio` cube as a small rolling hand: reach, turn, stop, and feel its pose.
+
+```bash
+cd toio-mcp
+uv sync --extra dev
+```
+
+Optional environment variables:
+
+- `TOIO_CUBE_NAME`: only connect to the named cube
+- `TOIO_SCAN_TIMEOUT`: BLE scan timeout in seconds (default `5`)
+- `TOIO_SPEED`: motion speed (default `80`)
+
+On Windows, `toio-mcp` applies a compatibility shim for newer `bleak` releases so
+`toio-py 1.1.0` can still scan successfully.
+
 ### 3. Codex CLI Configuration
 
 Register the MCP servers directly with Codex CLI:
@@ -243,6 +262,9 @@ codex mcp add system-temperature -- \
 
 codex mcp add room-actuator --env ROOM_ACTUATOR_BACKEND=home_assistant --env HOME_ASSISTANT_URL=http://homeassistant.local:8123 --env HOME_ASSISTANT_TOKEN=your-token -- \
   uv --directory "$(pwd)/room-actuator-mcp" run room-actuator-mcp
+
+codex mcp add toio --env TOIO_SCAN_TIMEOUT=10 -- \
+  uv --directory "$(pwd)/toio-mcp" run toio-mcp
 ```
 
 Codex stores these registrations in `~/.codex/config.toml`.

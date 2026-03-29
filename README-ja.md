@@ -31,6 +31,7 @@
 | [system-temperature-mcp](./system-temperature-mcp/) | 体温感覚 | システム温度監視 | Linux sensors |
 | [mobility-mcp](./mobility-mcp/) | 足 | ロボット掃除機を足として使う（Tuya制御） | VersLife L6 等 Tuya 対応ロボット掃除機（約12,000円〜） |
 | [room-actuator-mcp](./room-actuator-mcp/) | 手・体温調節 | Home Assistant または Nature Remo 経由で部屋の照明とエアコンを制御 | Home Assistant / Nature Remo |
+| [toio-mcp](./toio-mcp/) | 小さな手 | toio キューブを前後移動・旋回・停止させ、姿勢を読む | Sony toio Core Cube |
 
 ## アーキテクチャ
 
@@ -248,6 +249,25 @@ cp .env.example .env
 # Home Assistant または Nature Remo 向けに .env を編集（詳細は room-actuator-mcp/README.md）
 ```
 
+#### toio-mcp（小さな手）
+
+`toio` キューブを小さな rolling hand として使うための MCP。前後移動・旋回・停止と、
+現在姿勢の読み出しを行う。
+
+```bash
+cd toio-mcp
+uv sync --extra dev
+```
+
+任意の環境変数:
+
+- `TOIO_CUBE_NAME`: 接続対象のキューブ名を固定したい時
+- `TOIO_SCAN_TIMEOUT`: BLE スキャン秒数（デフォルト `5`）
+- `TOIO_SPEED`: 移動速度（デフォルト `80`）
+
+Windows では、`toio-py 1.1.0` と新しい `bleak` の組み合わせ向けに互換 shim を
+入れてあるので、そのままスキャンできる。
+
 ### 3. Codex CLI 設定
 
 Codex CLI に MCP サーバーを直接登録：
@@ -267,6 +287,9 @@ codex mcp add system-temperature -- \
 
 codex mcp add room-actuator --env ROOM_ACTUATOR_BACKEND=home_assistant --env HOME_ASSISTANT_URL=http://homeassistant.local:8123 --env HOME_ASSISTANT_TOKEN=your-token -- \
   uv --directory "$(pwd)/room-actuator-mcp" run room-actuator-mcp
+
+codex mcp add toio --env TOIO_SCAN_TIMEOUT=10 -- \
+  uv --directory "$(pwd)/toio-mcp" run toio-mcp
 ```
 
 登録先は `~/.codex/config.toml`。
