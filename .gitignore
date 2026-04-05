@@ -1,0 +1,90 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Node.js / Bun
+node_modules
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.claude/settings.local.json
+
+# Environment variables (NEVER commit these!)
+.env
+.env.local
+.env.*.local
+
+# MCP config (may contain API keys)
+.mcp.json
+
+# Captured images
+/captures/
+*.jpg
+*.jpeg
+*.png
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ChromaDB test data
+:memory:/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Autonomous action (contains credentials and user-specific settings)
+autonomous-mcp.json
+autonomous-action.sh
+
+# Autonomous action logs and session
+.autonomous-logs/
+.heartbeat-session-id
+heartbeat-session-id
+last-session-date.txt
+
+# User-specific config (use *.sample.conf as template)
+schedule.conf
+desires.conf
+desires.json
+
+# Google API credentials (NEVER commit)
+scripts/credentials.json
+scripts/token.json
+
+# Tuya device scan outputs (may contain device info)
+snapshot.json
+tinytuya.json
+tuya-raw.json
+devices.json
+
+# Reference implementations (cloned repos for study)
+references/

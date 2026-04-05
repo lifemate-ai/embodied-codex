@@ -1,0 +1,45 @@
+{
+  "mcpServers": {
+    "ip-webcam": {
+      "command": "uv",
+      "args": ["run", "--directory", "ip-webcam-mcp", "ip-webcam-mcp"],
+      "env": {
+        "IP_WEBCAM_HOST": "192.168.1.xxx",
+        "IP_WEBCAM_PORT": "8080"
+      }
+    },
+    "usb-webcam": {
+      "command": "uv",
+      "args": ["run", "--directory", "usb-webcam-mcp", "usb-webcam-mcp"]
+    },
+    "wifi-cam": {
+      "command": "uv",
+      "args": ["run", "--directory", "wifi-cam-mcp", "wifi-cam-mcp"],
+      "env": {
+        "TAPO_CAMERA_HOST": "192.168.1.xxx",
+        "TAPO_USERNAME": "your-username",
+        "TAPO_PASSWORD": "your-password"
+      }
+    },
+    "memory": {
+      "command": "uv",
+      "args": ["run", "--directory", "memory-mcp", "memory-mcp"]
+    },
+    "system-temperature": {
+      "command": "uv",
+      "args": ["run", "--directory", "system-temperature-mcp", "system-temperature-mcp"]
+    },
+    "tts": {
+      "command": "uv",
+      "args": ["run", "--directory", "tts-mcp", "tts-mcp"],
+      "env": {
+        "ELEVENLABS_API_KEY": "your-api-key",
+        "VOICEVOX_URL": "http://localhost:50021",
+        "VOICEVOX_SPEAKER": "3",
+        "TTS_PLAYBACK": "auto",
+        "GO2RTC_URL": "http://localhost:1984",
+        "GO2RTC_STREAM": "tapo_cam"
+      }
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "assistant",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@mozilla/readability": "^0.5.0",
+    "linkedom": "^0.18.0"
+  }
+}
