@@ -28,6 +28,26 @@ collection_name = "codex_memories"
 embedding_model = "intfloat/multilingual-e5-base"
 enable_bm25 = true
 
+[latent_loop]
+db_path = ""                   # "" = default (~/.codex/latent-loop/latent_loop.db)
+default_mode = "adaptive"      # "fixed", "dynamic", or "adaptive"
+min_iterations = 2
+max_iterations = 8
+kl_threshold = 0.03
+entropy_threshold = 0.35
+margin_threshold = 0.25
+novelty_threshold = 0.05
+confidence_threshold = 0.72
+overthinking_patience = 2
+allow_halt_with_unresolved_low_priority = true
+store_compact_traces = true
+store_private_cot = false
+min_fact_confidence = 0.5
+allow_inferred_facts = true
+prefer_atomic_facts = true
+deduplicate_facts = true
+max_paths = 10
+
 [mobility]
 direction_dp = 4
 default_move_duration = 1.0

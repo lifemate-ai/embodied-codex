@@ -29,6 +29,9 @@ Traditional LLMs were passive — they could only see what was shown to them. Wi
 | [wifi-cam-mcp](./wifi-cam-mcp/) | Eyes, Neck, Ears | ONVIF PTZ camera control + speech recognition | TP-Link Tapo C210/C220 etc. |
 | [tts-mcp](./tts-mcp/) | Voice | Unified TTS (ElevenLabs + VOICEVOX) | ElevenLabs API / VOICEVOX + go2rtc |
 | [memory-mcp](./memory-mcp/) | Brain | Long-term, visual & episodic memory, ToM | SQLite + numpy + Pillow |
+| [sociality-mcp](./sociality-mcp/) | Social cognition | Social state, relationship modeling, joint attention, boundaries, self narrative | Shared SQLite social DB |
+| [x-mcp](./x-mcp/) | Public voice | Read and post on X for a public-facing embodied agent | X API credentials |
+| [latent-loop-mcp](./latent-loop-mcp/) | Latent cognition | Recurrent-style reasoning state, adaptive halting, fact composition | SQLite |
 | [system-temperature-mcp](./system-temperature-mcp/) | Body temperature | System temperature monitoring | Linux sensors |
 | [mobility-mcp](./mobility-mcp/) | Legs | Use a robot vacuum as legs (Tuya control) | Tuya-compatible robot vacuums e.g. VersLife L6 (~$80) |
 | [room-actuator-mcp](./room-actuator-mcp/) | Hands, Thermoregulation | Control room lights and air conditioners via Home Assistant or Nature Remo | Home Assistant / Nature Remo |
@@ -80,11 +83,8 @@ cd ip-webcam-mcp
 uv sync
 ```
 
-Register with Codex CLI:
-```bash
-codex mcp add ip-webcam -- \
-  uv --directory "$(pwd)/ip-webcam-mcp" run ip-webcam-mcp
-```
+Configure Codex by copying the relevant sections from
+[`./.codex/config.toml.example`](./.codex/config.toml.example) into `~/.codex/config.toml`.
 
 #### usb-webcam-mcp (USB Camera)
 
@@ -136,6 +136,27 @@ This is the tricky part. You need to create a **camera local account**, NOT a TP
 
 ```bash
 cd memory-mcp
+uv sync
+```
+
+#### sociality-mcp (Social Cognition)
+
+```bash
+cd sociality-mcp
+uv sync
+```
+
+#### x-mcp (X / Social Feed)
+
+```bash
+cd x-mcp
+uv sync
+```
+
+#### latent-loop-mcp (Latent Cognition)
+
+```bash
+cd latent-loop-mcp
 uv sync
 ```
 
@@ -226,26 +247,9 @@ cp .env.example .env
 
 ### 3. Codex CLI Configuration
 
-Register the MCP servers directly with Codex CLI:
-
-```bash
-codex mcp add wifi-cam --env TAPO_CAMERA_HOST=192.168.1.xxx --env TAPO_USERNAME=your-user --env TAPO_PASSWORD=your-password -- \
-  uv --directory "$(pwd)/wifi-cam-mcp" run wifi-cam-mcp
-
-codex mcp add memory -- \
-  uv --directory "$(pwd)/memory-mcp" run memory-mcp
-
-codex mcp add tts --env GO2RTC_URL=http://localhost:1984 --env GO2RTC_STREAM=tapo_cam -- \
-  uv --directory "$(pwd)/tts-mcp" run tts-mcp
-
-codex mcp add system-temperature -- \
-  uv --directory "$(pwd)/system-temperature-mcp" run system-temperature-mcp
-
-codex mcp add room-actuator --env ROOM_ACTUATOR_BACKEND=home_assistant --env HOME_ASSISTANT_URL=http://homeassistant.local:8123 --env HOME_ASSISTANT_TOKEN=your-token -- \
-  uv --directory "$(pwd)/room-actuator-mcp" run room-actuator-mcp
-```
-
-Codex stores these registrations in `~/.codex/config.toml`.
+Use TOML configuration only. Copy the relevant MCP sections from
+[`./.codex/config.toml.example`](./.codex/config.toml.example) into `~/.codex/config.toml`,
+then adjust paths and secrets locally.
 
 ## Usage
 
@@ -333,6 +337,38 @@ See `wifi-cam-mcp/README.md` for stereo vision / right eye tools.
 | `get_working_memory` / `refresh_working_memory` | Working memory (short-term buffer) |
 | `consolidate_memories` | Memory replay & consolidation (hippocampal replay-inspired) |
 | `list_recent_memories` / `get_memory_stats` | Recent memories & statistics |
+
+### sociality-mcp
+
+| Tool | Description |
+|------|-------------|
+| `get_social_state` / `summarize_social_context` | Compact recent social state for prompt injection |
+| `upsert_person` / `get_person_model` | Relationship model for a person |
+| `ingest_interaction` / `list_open_loops` / `suggest_followup` | Track relationship-relevant interactions and open loops |
+| `get_current_joint_focus` / `resolve_reference` | Joint attention and deictic reference resolution |
+| `evaluate_action` / `review_social_post` | Boundary-aware action and posting review |
+| `get_self_summary` / `list_active_arcs` / `reflect_on_change` | Self-narrative summary and change reflection |
+
+### x-mcp
+
+| Tool | Description |
+|------|-------------|
+| `get_mentions` | Read recent mentions and replies for a configured X account |
+| `get_user_tweets` / `get_trending_topic` | Inspect recent tweets and topic-level live discussion |
+| `search_x` | Search live X posts through Grok-backed search |
+| `post_tweet` | Post a tweet or reply, optionally with an image |
+
+### latent-loop-mcp
+
+| Tool | Description |
+|------|-------------|
+| `start_loop` | Start a recurrent-style reasoning loop |
+| `commit_iteration` | Commit one iteration and receive a halting decision |
+| `finalize_loop` | Return the best iteration rather than blindly the latest |
+| `upsert_fact` / `search_facts` | Store and search atomic fact edges with provenance |
+| `compose_path` | Deterministic multi-hop fact composition |
+| `get_loop_trace` | Inspect compact iteration diagnostics |
+| `suggest_next_loop_action` / `get_loop_stats` | Next-step hinting and aggregate stats |
 
 ### system-temperature-mcp
 
