@@ -1,0 +1,68 @@
+# Copy the relevant sections into ~/.codex/config.toml and adjust paths / secrets locally.
+
+[mcp_servers.ip-webcam]
+command = "uv"
+args = ["--directory", "/path/to/embodied-codex/ip-webcam-mcp", "run", "ip-webcam-mcp"]
+
+[mcp_servers.ip-webcam.env]
+IP_WEBCAM_HOST = "192.168.1.xxx"
+IP_WEBCAM_PORT = "8080"
+
+[mcp_servers.usb-webcam]
+command = "uv"
+args = ["--directory", "/path/to/embodied-codex/usb-webcam-mcp", "run", "usb-webcam-mcp"]
+
+[mcp_servers.wifi-cam]
+command = "uv"
+args = ["--directory", "/path/to/embodied-codex/wifi-cam-mcp", "run", "wifi-cam-mcp"]
+tool_timeout_sec = 120.0
+
+[mcp_servers.wifi-cam.env]
+TAPO_CAMERA_HOST = "192.168.1.xxx"
+TAPO_USERNAME = "your-username"
+TAPO_PASSWORD = "your-password"
+TAPO_MOUNT_MODE = "normal"
+
+[mcp_servers.memory]
+command = "uv"
+args = ["--directory", "/path/to/embodied-codex/memory-mcp", "run", "memory-mcp"]
+
+[mcp_servers.sociality]
+command = "uv"
+args = ["--directory", "/path/to/embodied-codex/sociality-mcp", "run", "sociality-mcp"]
+
+[mcp_servers.x]
+command = "uv"
+args = ["--directory", "/path/to/embodied-codex/x-mcp", "run", "x-mcp"]
+
+[mcp_servers.latent-loop]
+command = "uv"
+args = ["--directory", "/path/to/embodied-codex/latent-loop-mcp", "run", "latent-loop-mcp"]
+
+[mcp_servers.elevenlabs-t2s]
+command = "uv"
+args = ["--directory", "/path/to/embodied-codex/tts-mcp", "run", "tts-mcp"]
+tool_timeout_sec = 600.0
+
+[mcp_servers.elevenlabs-t2s.env]
+GO2RTC_URL = "http://localhost:1984"
+GO2RTC_STREAM = "tapo_cam"
+ELEVENLABS_PLAYBACK = "none"
+
+[mcp_servers.system-temperature]
+command = "uv"
+args = ["--directory", "/path/to/embodied-codex/system-temperature-mcp", "run", "system-temperature-mcp"]
+
+[mcp_servers.mobility]
+command = "uv"
+args = ["--directory", "/path/to/embodied-codex/mobility-mcp", "run", "mobility-mcp"]
+
+[mcp_servers.mobility.env]
+TUYA_DEVICE_ID = "your-device-id"
+TUYA_API_KEY = "your-api-key"
+TUYA_API_SECRET = "your-api-secret"
+TUYA_API_REGION = "us"
+
+[mcp_servers.lighting]
+command = "uv"
+args = ["--directory", "/path/to/embodied-codex/room-actuator-mcp", "run", "room-actuator-mcp"]

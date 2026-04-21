@@ -12,6 +12,9 @@ run on its own.
 - `wifi-cam-mcp/`: Wi-Fi PTZ camera control and listening (`src/wifi_cam_mcp/`).
 - `tts-mcp/`: Unified text-to-speech (`src/tts_mcp/`).
 - `memory-mcp/`: Long-term, visual, and episodic memory (`src/memory_mcp/`).
+- `sociality-mcp/`: Unified social cognition facade (`src/sociality_mcp/`).
+- `x-mcp/`: X integration for mentions, posting, and live topic search (`src/x_mcp/`).
+- `latent-loop-mcp/`: Recurrent-style reasoning control (`src/latent_loop_mcp/`).
 - `system-temperature-mcp/`: System temperature sensing (`src/system_temperature_mcp/`).
 - `mobility-mcp/`: Tuya-compatible robot vacuum control (`src/mobility_mcp/`).
 - `room-actuator-mcp/`: Room lights and air conditioner control (`src/room_actuator_mcp/`).
@@ -66,6 +69,26 @@ overrides it.
 3. Record only durable, reusable outputs in tracked files.
 4. Leave the workspace in a state that can continue cleanly on the next heartbeat.
 5. If nothing useful can be done safely, do nothing rather than fabricate progress.
+
+## Latent Loop Reasoning Protocol
+
+Use `latent-loop-mcp` when a task needs multi-hop reasoning, memory composition, conflicting
+evidence handling, social ambiguity resolution, joint attention, or boundary/self-narrative
+checks. Do not use it for simple one-shot answers.
+
+Each loop iteration should follow the same block:
+
+1. Read the current loop state.
+2. Retrieve only the evidence needed from `memory-mcp`, `sociality-mcp`, or structured facts.
+3. Convert reusable evidence into atomic facts when provenance is strong enough.
+4. Update 1-5 candidate answers with scores and compact public trace text.
+5. Update unresolved subgoals.
+6. Commit the iteration to `latent-loop`.
+7. Obey the returned decision.
+
+`finalize_loop` should be treated as authoritative for the final answer. It returns the best
+iteration, not necessarily the latest one. Never persist or expose raw private chain-of-thought;
+keep stored traces compact and inspectable.
 
 ## Commit & Pull Request Guidelines
 - Use Conventional Commits such as `feat:`, `fix:`, or `docs:`.
