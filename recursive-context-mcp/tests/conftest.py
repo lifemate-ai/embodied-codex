@@ -23,6 +23,12 @@ def sample_context(tmp_path):
         encoding="utf-8",
     )
     (root / "image.bin").write_bytes(b"\x00\x01\x02")
+    venv = root / ".venv"
+    venv.mkdir()
+    (venv / "ignored.txt").write_text("The hidden balcony dependency should be ignored.\n", encoding="utf-8")
+    pycache = root / "pkg" / "__pycache__"
+    pycache.mkdir(parents=True)
+    (pycache / "ignored.py").write_text("The hidden balcony cache should be ignored.\n", encoding="utf-8")
     return root
 
 
@@ -42,6 +48,19 @@ def program_service(tmp_path):
     svc = RecursiveContextService(
         store,
         RecursiveContextConfig(db_path=str(tmp_path / "recursive_context.db"), enable_programs=True),
+    )
+    try:
+        yield svc
+    finally:
+        store.close()
+
+
+@pytest.fixture
+def unfiltered_service(tmp_path):
+    store = RecursiveContextStore(str(tmp_path / "recursive_context.db"))
+    svc = RecursiveContextService(
+        store,
+        RecursiveContextConfig(db_path=str(tmp_path / "recursive_context.db"), exclude_patterns=()),
     )
     try:
         yield svc

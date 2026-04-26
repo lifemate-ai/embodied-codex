@@ -84,8 +84,16 @@ class RecursiveContextService:
 
     def inspect_context(self, session_id: str, max_files: int = 30) -> dict[str, Any]:
         session = self._session(session_id)
-        files = list_files(session.sources, limit=max_files if max_files > 0 else 100000)
-        all_files = files if max_files == 0 else list_files(session.sources, limit=100000)
+        files = list_files(
+            session.sources,
+            limit=max_files if max_files > 0 else 100000,
+            exclude_patterns=self._config.exclude_patterns,
+        )
+        all_files = (
+            files
+            if max_files == 0
+            else list_files(session.sources, limit=100000, exclude_patterns=self._config.exclude_patterns)
+        )
         stats = {
             "source_count": len(session.sources),
             "file_count": len(all_files),
@@ -103,7 +111,7 @@ class RecursiveContextService:
 
     def list_context_files(self, session_id: str, glob: str | None = None, limit: int = 100) -> dict[str, Any]:
         session = self._session(session_id)
-        files = list_files(session.sources, glob=glob, limit=limit)
+        files = list_files(session.sources, glob=glob, limit=limit, exclude_patterns=self._config.exclude_patterns)
         return {"session_id": session_id, "files": [entry.model_dump(mode="json") for entry in files]}
 
     def search_context(
