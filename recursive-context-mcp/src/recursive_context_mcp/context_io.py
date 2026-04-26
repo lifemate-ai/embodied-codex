@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import fnmatch
 import re
+from collections.abc import Sequence
 from pathlib import Path
 
-from .config import RecursiveContextConfig
+from .config import DEFAULT_EXCLUDE_PATTERNS, RecursiveContextConfig
 from .models import ContextSlice, ContextSource, FileEntry, SearchHit
 
 TEXT_SUFFIXES = {
@@ -82,6 +83,10 @@ def _iter_source_paths(source: ContextSource) -> list[Path]:
     return sorted(path for path in root.rglob("*") if path.is_file())
 
 
+def _is_excluded(relative_path: str, exclude_patterns: Sequence[str]) -> bool:
+    return any(fnmatch.fnmatch(relative_path, pattern) for pattern in exclude_patterns)
+
+
 def relative_path_for(source: ContextSource, path: Path) -> str:
     root = Path(source.path)
     if source.kind == "file":
@@ -109,11 +114,15 @@ def list_files(
     sources: list[ContextSource],
     glob: str | None = None,
     limit: int = 100,
+    exclude_patterns: Sequence[str] | None = None,
 ) -> list[FileEntry]:
+    active_excludes = DEFAULT_EXCLUDE_PATTERNS if exclude_patterns is None else exclude_patterns
     entries: list[FileEntry] = []
     for source in sources:
         for path in _iter_source_paths(source):
             relative = relative_path_for(source, path)
+            if active_excludes and _is_excluded(relative, active_excludes):
+                continue
             if glob and not fnmatch.fnmatch(relative, glob):
                 continue
             try:
@@ -191,7 +200,7 @@ def search_context(
     query_lower = query.lower()
     hits: list[SearchHit] = []
 
-    for entry in list_files(sources, glob=glob, limit=100000):
+    for entry in list_files(sources, glob=glob, limit=100000, exclude_patterns=config.exclude_patterns):
         if len(hits) >= limit:
             break
         path = Path(entry.path)

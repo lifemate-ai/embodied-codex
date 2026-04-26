@@ -6,12 +6,38 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+DEFAULT_EXCLUDE_PATTERNS: tuple[str, ...] = (
+    ".git/**",
+    "**/.git/**",
+    ".venv/**",
+    "**/.venv/**",
+    "__pycache__/**",
+    "**/__pycache__/**",
+    ".pytest_cache/**",
+    "**/.pytest_cache/**",
+    ".ruff_cache/**",
+    "**/.ruff_cache/**",
+    "node_modules/**",
+    "**/node_modules/**",
+    "dist/**",
+    "**/dist/**",
+    "build/**",
+    "**/build/**",
+)
+
 
 def _bool_env(name: str, default: bool = False) -> bool:
     value = os.environ.get(name)
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _tuple_env(name: str, default: tuple[str, ...]) -> tuple[str, ...]:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return tuple(pattern.strip() for pattern in value.split(",") if pattern.strip())
 
 
 @dataclass(frozen=True)
@@ -22,6 +48,7 @@ class RecursiveContextConfig:
     max_read_chars: int = 20000
     max_search_file_bytes: int = 2_000_000
     enable_programs: bool = False
+    exclude_patterns: tuple[str, ...] = DEFAULT_EXCLUDE_PATTERNS
 
     @classmethod
     def from_env(cls) -> "RecursiveContextConfig":
@@ -32,6 +59,7 @@ class RecursiveContextConfig:
                 os.environ.get("RECURSIVE_CONTEXT_MAX_SEARCH_FILE_BYTES", cls.max_search_file_bytes)
             ),
             enable_programs=_bool_env("RECURSIVE_CONTEXT_ENABLE_PROGRAMS", cls.enable_programs),
+            exclude_patterns=_tuple_env("RECURSIVE_CONTEXT_EXCLUDE_PATTERNS", DEFAULT_EXCLUDE_PATTERNS),
         )
 
     @property
