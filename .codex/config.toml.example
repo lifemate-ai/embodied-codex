@@ -39,6 +39,10 @@ args = ["--directory", "/path/to/embodied-codex/x-mcp", "run", "x-mcp"]
 command = "uv"
 args = ["--directory", "/path/to/embodied-codex/latent-loop-mcp", "run", "latent-loop-mcp"]
 
+[mcp_servers.recursive-context]
+command = "uv"
+args = ["--directory", "/path/to/embodied-codex/recursive-context-mcp", "run", "recursive-context-mcp"]
+
 [mcp_servers.elevenlabs-t2s]
 command = "uv"
 args = ["--directory", "/path/to/embodied-codex/tts-mcp", "run", "tts-mcp"]
