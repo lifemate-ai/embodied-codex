@@ -32,6 +32,7 @@ Traditional LLMs were passive — they could only see what was shown to them. Wi
 | [sociality-mcp](./sociality-mcp/) | Social cognition | Social state, relationship modeling, joint attention, boundaries, self narrative | Shared SQLite social DB |
 | [x-mcp](./x-mcp/) | Public voice | Read and post on X for a public-facing embodied agent | X API credentials |
 | [latent-loop-mcp](./latent-loop-mcp/) | Latent cognition | Recurrent-style reasoning state, adaptive halting, fact composition | SQLite |
+| [recursive-context-mcp](./recursive-context-mcp/) | Context workspace | RLM-style large-context inspection, slicing, and sub-query packetization | Local files + SQLite |
 | [system-temperature-mcp](./system-temperature-mcp/) | Body temperature | System temperature monitoring | Linux sensors |
 | [mobility-mcp](./mobility-mcp/) | Legs | Use a robot vacuum as legs (Tuya control) | Tuya-compatible robot vacuums e.g. VersLife L6 (~$80) |
 | [room-actuator-mcp](./room-actuator-mcp/) | Hands, Thermoregulation | Control room lights and air conditioners via Home Assistant or Nature Remo | Home Assistant / Nature Remo |
@@ -157,6 +158,13 @@ uv sync
 
 ```bash
 cd latent-loop-mcp
+uv sync
+```
+
+#### recursive-context-mcp (Context Workspace)
+
+```bash
+cd recursive-context-mcp
 uv sync
 ```
 
@@ -369,6 +377,18 @@ See `wifi-cam-mcp/README.md` for stereo vision / right eye tools.
 | `compose_path` | Deterministic multi-hop fact composition |
 | `get_loop_trace` | Inspect compact iteration diagnostics |
 | `suggest_next_loop_action` / `get_loop_stats` | Next-step hinting and aggregate stats |
+
+### recursive-context-mcp
+
+| Tool | Description |
+|------|-------------|
+| `start_session` | Register local files/directories as external context |
+| `inspect_context` / `list_context_files` | Inspect context shape and available files |
+| `search_context` / `read_context_slice` | Search and read bounded text slices |
+| `commit_buffer` / `get_buffer` / `list_buffers` | Persist and retrieve intermediate artifacts |
+| `prepare_sub_query` / `record_sub_result` | Build bounded sub-agent packets and store results |
+| `run_program` | Optional local inspection program, disabled by default |
+| `finalize_session` / `get_session_trace` | Persist final summaries and inspect diagnostics |
 
 ### system-temperature-mcp
 

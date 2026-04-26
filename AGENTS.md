@@ -15,6 +15,7 @@ run on its own.
 - `sociality-mcp/`: Unified social cognition facade (`src/sociality_mcp/`).
 - `x-mcp/`: X integration for mentions, posting, and live topic search (`src/x_mcp/`).
 - `latent-loop-mcp/`: Recurrent-style reasoning control (`src/latent_loop_mcp/`).
+- `recursive-context-mcp/`: RLM-style large-context inspection and sub-query packetization (`src/recursive_context_mcp/`).
 - `system-temperature-mcp/`: System temperature sensing (`src/system_temperature_mcp/`).
 - `mobility-mcp/`: Tuya-compatible robot vacuum control (`src/mobility_mcp/`).
 - `room-actuator-mcp/`: Room lights and air conditioner control (`src/room_actuator_mcp/`).
@@ -89,6 +90,26 @@ Each loop iteration should follow the same block:
 `finalize_loop` should be treated as authoritative for the final answer. It returns the best
 iteration, not necessarily the latest one. Never persist or expose raw private chain-of-thought;
 keep stored traces compact and inspectable.
+
+## Recursive Context Protocol
+
+Use `recursive-context-mcp` when a task needs a large local context that should not be flattened
+into the prompt: repositories, logs, memory exports, observation manifests, paper transcripts, or
+evaluation datasets.
+
+Default flow:
+
+1. Register local context roots with `start_session`.
+2. Inspect shape with `inspect_context` or `list_context_files`.
+3. Search and read bounded slices before drawing conclusions.
+4. Save intermediate manifests or notes with `commit_buffer`.
+5. Use `prepare_sub_query` when a bounded packet should be handed to another model or agent.
+6. Store returned answers with `record_sub_result`.
+7. Persist the final compact result with `finalize_session`.
+
+`run_program` is disabled by default and is not a sandbox. Enable it only in trusted local
+workflows. Do not persist private chain-of-thought; store explicit slices, public buffers, and
+diagnostics only.
 
 ## Commit & Pull Request Guidelines
 - Use Conventional Commits such as `feat:`, `fix:`, or `docs:`.
