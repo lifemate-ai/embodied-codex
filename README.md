@@ -84,8 +84,8 @@ cd ip-webcam-mcp
 uv sync
 ```
 
-Configure Codex by copying the relevant sections from
-[`./.codex/config.toml.example`](./.codex/config.toml.example) into `~/.codex/config.toml`.
+Configure Codex using the project-local `.codex/config.toml` as described in
+[Codex CLI Configuration](#3-codex-cli-configuration).
 
 #### usb-webcam-mcp (USB Camera)
 
@@ -259,9 +259,40 @@ cp .env.example .env
 
 ### 3. Codex CLI Configuration
 
-Use TOML configuration only. Copy the relevant MCP sections from
-[`./.codex/config.toml.example`](./.codex/config.toml.example) into `~/.codex/config.toml`,
-then adjust paths and secrets locally.
+Manage this repository's MCP inventory and on/off switches in `.codex/config.toml`.
+
+1. From the repository root, copy `.codex/config.toml.example` to `.codex/config.toml`.
+2. Replace `/path/to/embodied-codex` with the absolute checkout path.
+   Forward slashes also work on Windows, for example `C:/dev/embodied-codex`.
+3. Run `uv sync` in each selected package and configure its `.env` and hardware per its README.
+4. Change `enabled = false` to `true` in the `[mcp_servers.<name>]` sections you need.
+5. Trust this project, then restart Codex from this directory.
+
+```powershell
+# Run at the repository root once; preserve an existing local config.
+if (!(Test-Path .codex/config.toml)) {
+    Copy-Item .codex/config.toml.example .codex/config.toml
+}
+# After replacing paths and enabling selected servers:
+codex mcp list
+codex
+```
+
+Use `codex mcp list` for configured servers and `/mcp` inside Codex for connection status.
+Being listed does not establish a successful connection. All 14 servers are disabled in the template.
+`mcp-pet` is a unified alternative to separate camera servers;
+`system-temperature` requires Linux sensors.
+
+Keep credentials in package `.env` files or environment variables. Keep supported device
+behavior settings in the existing [`mcpBehavior.toml`](./mcpBehavior.toml); see package
+READMEs for supported options. Local `.codex/config.toml` and `.env` files are ignored
+by Git; share only the template.
+
+Project configuration overlays `~/.codex/config.toml`. User-level MCPs not mentioned
+here are still inherited. Set a same-named server's `enabled = false` to disable it for
+this project. See the official
+[configuration](https://learn.chatgpt.com/docs/config-file/config-basic) and
+[MCP](https://learn.chatgpt.com/docs/extend/mcp?surface=cli) documentation.
 
 ## Usage
 

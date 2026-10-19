@@ -84,8 +84,7 @@ uv sync
 ```
 
 Codex の設定は
-[`./.codex/config.toml.example`](./.codex/config.toml.example) の必要な section を
-`~/.codex/config.toml` にコピーして行う。
+後述の「[Codex CLI 設定](#3-codex-cli-設定)」に従い、プロジェクトの `.codex/config.toml` で行う。
 
 #### usb-webcam-mcp（USB カメラ）
 
@@ -284,9 +283,40 @@ cp .env.example .env
 
 ### 3. Codex CLI 設定
 
-TOML 設定のみを前提にする。
-[`./.codex/config.toml.example`](./.codex/config.toml.example) の必要な MCP section を
-`~/.codex/config.toml` にコピーして、パスと secret を各自の環境に合わせて埋める。
+このリポジトリ専用の MCP 一覧と有効・無効は `.codex/config.toml` で管理する。
+
+1. リポジトリ直下で `.codex/config.toml.example` を `.codex/config.toml` にコピーする。
+2. `/path/to/embodied-codex` を、このリポジトリの絶対パスに置き換える。
+   Windows でも `C:/dev/embodied-codex` のように `/` を使える。
+3. 使うパッケージで `uv sync` を実行し、各 README に従って `.env` や機器を設定する。
+4. 必要な `[mcp_servers.<名前>]` の `enabled = false` を `true` に変更する。
+5. このリポジトリを信頼済みにして、ここから Codex を起動し直す。
+
+```powershell
+# リポジトリ直下で実行（初回のみ。既存設定は上書きしない）
+if (!(Test-Path .codex/config.toml)) {
+    Copy-Item .codex/config.toml.example .codex/config.toml
+}
+# パスを置き換え、必要な enabled を true に編集した後
+codex mcp list
+codex
+```
+
+設定一覧は `codex mcp list`、接続状態は Codex 内の `/mcp` で確認する。
+一覧への表示だけでは接続成功を意味しない。テンプレートでは全14サーバーを無効にしている。
+`mcp-pet` は個別のカメラサーバーの代わりに使える統合サーバーで、
+`system-temperature` は Linux sensors が必要。
+
+認証情報は各パッケージの `.env` または環境変数で管理し、
+対応する動作設定は既存の [`mcpBehavior.toml`](./mcpBehavior.toml) で管理する。
+設定項目は各パッケージの README を参照。
+実設定 `.codex/config.toml` と `.env` は Git 管理対象外で、テンプレートだけを共有する。
+
+プロジェクト設定は `~/.codex/config.toml` に重ねて適用される。
+ここに書かれていないユーザー設定の MCP も引き継がれる。
+同名サーバーの `enabled = false` は、このプロジェクトでの無効化に使える。
+詳細は [Codex の設定仕様](https://learn.chatgpt.com/docs/config-file/config-basic) と
+[MCP 設定仕様](https://learn.chatgpt.com/docs/extend/mcp?surface=cli) を参照。
 
 ## 使い方
 

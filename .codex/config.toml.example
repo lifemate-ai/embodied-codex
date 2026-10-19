@@ -1,72 +1,94 @@
-# Copy the relevant sections into ~/.codex/config.toml and adjust paths / secrets locally.
+# Project-local MCP inventory for embodied-codex.
+# Copy to .codex/config.toml and replace /path/to/embodied-codex with your
+# absolute checkout path (on Windows use forward slashes, e.g. C:/dev/embodied-codex).
+# All servers start disabled. Set enabled = true only for the servers you need.
+# Install dependencies with uv sync in each selected package before enabling it.
+# Keep credentials in package .env files / environment variables; see package READMEs.
+# This file configures this trusted project only; user-level MCPs can still be inherited.
+# Keep existing server IDs elevenlabs-t2s and lighting for compatibility.
 
+# Android IP Webcam
 [mcp_servers.ip-webcam]
+enabled = false
 command = "uv"
 args = ["--directory", "/path/to/embodied-codex/ip-webcam-mcp", "run", "ip-webcam-mcp"]
 
-[mcp_servers.ip-webcam.env]
-IP_WEBCAM_HOST = "192.168.1.xxx"
-IP_WEBCAM_PORT = "8080"
-
+# USB webcam
 [mcp_servers.usb-webcam]
+enabled = false
 command = "uv"
 args = ["--directory", "/path/to/embodied-codex/usb-webcam-mcp", "run", "usb-webcam-mcp"]
 
+# Wi-Fi PTZ camera and hearing
 [mcp_servers.wifi-cam]
+enabled = false
 command = "uv"
 args = ["--directory", "/path/to/embodied-codex/wifi-cam-mcp", "run", "wifi-cam-mcp"]
-tool_timeout_sec = 120.0
+tool_timeout_sec = 120
 
-[mcp_servers.wifi-cam.env]
-TAPO_CAMERA_HOST = "192.168.1.xxx"
-TAPO_USERNAME = "your-username"
-TAPO_PASSWORD = "your-password"
-TAPO_MOUNT_MODE = "normal"
-
+# Long-term, visual and episodic memory
 [mcp_servers.memory]
+enabled = false
 command = "uv"
 args = ["--directory", "/path/to/embodied-codex/memory-mcp", "run", "memory-mcp"]
 
+# Social cognition facade
 [mcp_servers.sociality]
+enabled = false
 command = "uv"
 args = ["--directory", "/path/to/embodied-codex/sociality-mcp", "run", "sociality-mcp"]
 
+# X reading and posting
 [mcp_servers.x]
+enabled = false
 command = "uv"
 args = ["--directory", "/path/to/embodied-codex/x-mcp", "run", "x-mcp"]
 
+# Iterative reasoning state
 [mcp_servers.latent-loop]
+enabled = false
 command = "uv"
 args = ["--directory", "/path/to/embodied-codex/latent-loop-mcp", "run", "latent-loop-mcp"]
 
+# Large local context inspection
 [mcp_servers.recursive-context]
+enabled = false
 command = "uv"
 args = ["--directory", "/path/to/embodied-codex/recursive-context-mcp", "run", "recursive-context-mcp"]
 
+# Unified TTS (ElevenLabs / VOICEVOX)
 [mcp_servers.elevenlabs-t2s]
+enabled = false
 command = "uv"
 args = ["--directory", "/path/to/embodied-codex/tts-mcp", "run", "tts-mcp"]
-tool_timeout_sec = 600.0
+tool_timeout_sec = 600
 
-[mcp_servers.elevenlabs-t2s.env]
-GO2RTC_URL = "http://localhost:1984"
-GO2RTC_STREAM = "tapo_cam"
-ELEVENLABS_PLAYBACK = "none"
-
+# System temperature (Linux sensors required)
 [mcp_servers.system-temperature]
+enabled = false
 command = "uv"
 args = ["--directory", "/path/to/embodied-codex/system-temperature-mcp", "run", "system-temperature-mcp"]
 
+# Tuya robot vacuum control
 [mcp_servers.mobility]
+enabled = false
 command = "uv"
 args = ["--directory", "/path/to/embodied-codex/mobility-mcp", "run", "mobility-mcp"]
 
-[mcp_servers.mobility.env]
-TUYA_DEVICE_ID = "your-device-id"
-TUYA_API_KEY = "your-api-key"
-TUYA_API_SECRET = "your-api-secret"
-TUYA_API_REGION = "us"
-
+# Room lights and air conditioner
 [mcp_servers.lighting]
+enabled = false
 command = "uv"
 args = ["--directory", "/path/to/embodied-codex/room-actuator-mcp", "run", "room-actuator-mcp"]
+
+# Unified senses server (alternative to separate camera servers)
+[mcp_servers.mcp-pet]
+enabled = false
+command = "uv"
+args = ["--directory", "/path/to/embodied-codex/mcp-pet", "run", "mcp-pet"]
+
+# Twilio morning calls (Python 3.11+)
+[mcp_servers.morning-call]
+enabled = false
+command = "uv"
+args = ["--directory", "/path/to/embodied-codex/morning-call-mcp", "run", "morning-call-mcp"]

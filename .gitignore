@@ -40,9 +40,10 @@ ENV/
 .env.local
 .env.*.local
 
-# MCP config (may contain API keys)
+# MCP config (may contain API keys or machine-specific paths)
 .mcp.json
 /wifi-cameras.toml
+/.codex/config.toml
 
 # Captured images
 /captures/
