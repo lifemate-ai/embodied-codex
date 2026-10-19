@@ -4,11 +4,14 @@ import asyncio
 import base64
 import io
 import logging
+import re
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
+from urllib.parse import quote
+from uuid import uuid4
 
 from PIL import Image
 
@@ -121,6 +124,21 @@ class TapoCamera:
         self._sw_position = CameraPosition()
         self._connected = False
 
+    def _safe_error(self, error: object) -> str:
+        """Keep transport diagnostics without logging camera credentials."""
+        text = str(error)
+        text = re.sub(r"(?i)(rtsps?|https?)://[^/\s@]+@", r"\1://[redacted]@", text)
+        for secret in (self._config.password, self._config.username):
+            if secret:
+                for representation in (secret, quote(secret, safe="")):
+                    text = text.replace(representation, "[redacted]")
+        return text
+
+    def _mount_mode(self) -> str:
+        if self._config.use_behavior_mount:
+            return get_behavior("wifi-cam", "mount_mode", self._config.mount_mode)
+        return self._config.mount_mode
+
     # ------------------------------------------------------------------
     # Connection lifecycle
     # ------------------------------------------------------------------
@@ -217,7 +235,7 @@ class TapoCamera:
                     logger.info("Reconnected on attempt %d", attempt)
                     return
                 except Exception as e:
-                    logger.error("Reconnect attempt %d failed: %s", attempt, e)
+                    logger.error("Reconnect attempt %d failed: %s", attempt, self._safe_error(e))
                     if attempt < MAX_RECONNECT_RETRIES:
                         await asyncio.sleep(RECONNECT_DELAY)
             raise RuntimeError(
@@ -237,7 +255,9 @@ class TapoCamera:
                 for keyword in ["connection", "timeout", "refused", "reset", "broken"]
             )
             if is_connection_error:
-                logger.warning("Connection error during operation, reconnecting: %s", e)
+                logger.warning(
+                    "Connection error during operation, reconnecting: %s", self._safe_error(e)
+                )
                 self._connected = False
                 self._cam = None
                 await self._ensure_connected()
@@ -270,7 +290,7 @@ class TapoCamera:
         try:
             image_data = await self._try_onvif_snapshot()
         except Exception as e:
-            onvif_error = str(e)
+            onvif_error = self._safe_error(e)
 
         # Fall back to RTSP if ONVIF snapshot fails
         if image_data is None:
@@ -284,7 +304,7 @@ class TapoCamera:
         image = Image.open(io.BytesIO(image_data))
 
         # In ceiling mount mode the image is upside-down, so rotate 180°.
-        mount_mode = get_behavior("wifi-cam", "mount_mode", self._config.mount_mode)
+        mount_mode = self._mount_mode()
         if mount_mode == "ceiling":
             image = image.rotate(180)
 
@@ -305,7 +325,7 @@ class TapoCamera:
         file_path = None
 
         if save_to_file:
-            file_path = str(self._capture_dir / f"capture_{timestamp}.jpg")
+            file_path = str(self._capture_dir / f"capture_{timestamp}_{uuid4().hex}.jpg")
             with open(file_path, "wb") as f:
                 f.write(buffer.getvalue())
 
@@ -324,7 +344,7 @@ class TapoCamera:
             if image_bytes and len(image_bytes) > 0:
                 return image_bytes
         except Exception as e:
-            logger.debug("ONVIF snapshot failed: %s", e)
+            logger.debug("ONVIF snapshot failed: %s", self._safe_error(e))
         return None
 
     async def _capture_via_rtsp(self) -> bytes:
@@ -337,7 +357,7 @@ class TapoCamera:
         try:
             return await self._capture_rtsp_stream(self._get_rtsp_url(sub_stream=False))
         except Exception as e:
-            logger.info("Main stream (stream1) failed: %s, trying sub stream", e)
+            logger.info("Main stream (stream1) failed: %s, trying sub stream", self._safe_error(e))
         return await self._capture_rtsp_stream(self._get_rtsp_url(sub_stream=True))
 
     async def _capture_rtsp_stream(self, rtsp_url: str) -> bytes:
@@ -367,15 +387,13 @@ class TapoCamera:
                 stderr=asyncio.subprocess.PIPE,
             )
             try:
-                _, stderr_data = await asyncio.wait_for(
-                    process.communicate(), timeout=10.0
-                )
+                _, stderr_data = await asyncio.wait_for(process.communicate(), timeout=10.0)
             except asyncio.TimeoutError:
                 process.kill()
                 raise RuntimeError("RTSP capture timed out after 10s")
 
             if process.returncode != 0:
-                stderr_msg = stderr_data.decode(errors="replace").strip()[-500:]
+                stderr_msg = self._safe_error(stderr_data.decode(errors="replace")).strip()[-500:]
                 raise RuntimeError(
                     f"ffmpeg RTSP capture failed (rc={process.returncode}): {stderr_msg}"
                 )
@@ -439,7 +457,7 @@ class TapoCamera:
         # In ceiling mount mode the camera is upside-down:
         # - Pan mirrors (left/right swap)
         # - Tilt is unchanged: swapping base sign + physical inversion cancel out
-        mount_mode = get_behavior("wifi-cam", "mount_mode", self._config.mount_mode)
+        mount_mode = self._mount_mode()
         if mount_mode == "ceiling":
             pan_delta = -pan_delta
 
@@ -481,7 +499,7 @@ class TapoCamera:
                 direction=direction,
                 degrees=degrees,
                 success=False,
-                message=f"Failed to move: {e!s}",
+                message=f"Failed to move: {self._safe_error(e)}",
             )
 
     def get_position(self) -> CameraPosition:
@@ -506,14 +524,14 @@ class TapoCamera:
                 pan = status.Position.PanTilt.x
                 # Tapo ONVIF: y+ = physical UP
                 tilt = status.Position.PanTilt.y
-                mount_mode = get_behavior("wifi-cam", "mount_mode", self._config.mount_mode)
+                mount_mode = self._mount_mode()
                 if mount_mode == "ceiling":
                     # Ceiling: camera upside-down, pan mirrors, tilt inverts
                     pan = -pan
                     tilt = -tilt
                 return CameraPosition(pan=pan, tilt=tilt)
         except Exception as e:
-            logger.debug("Failed to get hardware position: %s", e)
+            logger.debug("Failed to get hardware position: %s", self._safe_error(e))
         return None
 
     def reset_position_tracking(self) -> None:
@@ -580,8 +598,8 @@ class TapoCamera:
 
             return zeep.helpers.serialize_object(info, dict)
         except Exception as e:
-            logger.error("Failed to get device info: %s", e)
-            return {"error": str(e)}
+            logger.error("Failed to get device info: %s", self._safe_error(e))
+            return {"error": self._safe_error(e)}
 
     async def get_presets(self) -> list[dict]:
         """Get saved camera presets via ONVIF."""
@@ -593,7 +611,7 @@ class TapoCamera:
                 for p in (result or [])
             ]
         except Exception as e:
-            logger.error("Failed to get presets: %s", e)
+            logger.error("Failed to get presets: %s", self._safe_error(e))
             return []
 
     async def go_to_preset(self, preset_id: str) -> MoveResult:
@@ -618,7 +636,7 @@ class TapoCamera:
                 direction=Direction.LEFT,
                 degrees=0,
                 success=False,
-                message=f"Failed to go to preset: {e!s}",
+                message=f"Failed to go to preset: {self._safe_error(e)}",
             )
 
     # ------------------------------------------------------------------
@@ -644,7 +662,7 @@ class TapoCamera:
             await self._ensure_connected()
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        file_path = str(self._capture_dir / f"audio_{timestamp}.wav")
+        file_path = str(self._capture_dir / f"audio_{timestamp}_{uuid4().hex}.wav")
         self._capture_dir.mkdir(parents=True, exist_ok=True)
 
         try:
@@ -653,22 +671,34 @@ class TapoCamera:
                 if system == "Darwin":
                     cmd = [
                         "ffmpeg",
-                        "-f", "avfoundation",
-                        "-i", ":0",
-                        "-ar", "16000",
-                        "-ac", "1",
-                        "-t", str(duration),
-                        "-y", file_path,
+                        "-f",
+                        "avfoundation",
+                        "-i",
+                        ":0",
+                        "-ar",
+                        "16000",
+                        "-ac",
+                        "1",
+                        "-t",
+                        str(duration),
+                        "-y",
+                        file_path,
                     ]
                 elif system == "Linux":
                     cmd = [
                         "ffmpeg",
-                        "-f", "alsa",
-                        "-i", "default",
-                        "-ar", "16000",
-                        "-ac", "1",
-                        "-t", str(duration),
-                        "-y", file_path,
+                        "-f",
+                        "alsa",
+                        "-i",
+                        "default",
+                        "-ar",
+                        "16000",
+                        "-ac",
+                        "1",
+                        "-t",
+                        str(duration),
+                        "-y",
+                        file_path,
                     ]
                 else:
                     raise RuntimeError(f"Unsupported platform for local microphone: {system}")
@@ -717,7 +747,7 @@ class TapoCamera:
                 transcript=transcript,
             )
         except Exception as e:
-            raise RuntimeError(f"Failed to record audio: {e!s}") from e
+            raise RuntimeError(f"Failed to record audio: {self._safe_error(e)}") from e
 
     async def _transcribe_audio(self, audio_path: str) -> str | None:
         """Transcribe audio file using OpenAI Whisper.
@@ -738,4 +768,4 @@ class TapoCamera:
             result = await asyncio.to_thread(model.transcribe, audio_path, language="ja")
             return result.get("text", "").strip()
         except Exception as e:
-            return f"[Transcription failed: {e!s}]"
+            return f"[Transcription failed: {self._safe_error(e)}]"

@@ -1,7 +1,14 @@
 """Configuration for WiFi Camera MCP Server."""
 
 import os
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, field
+from pathlib import Path
+
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
 
 from dotenv import load_dotenv
 
@@ -14,12 +21,13 @@ class CameraConfig:
 
     host: str
     username: str
-    password: str
+    password: str = field(repr=False)
     onvif_port: int = 2020
-    stream_url: str | None = None
+    stream_url: str | None = field(default=None, repr=False)
     max_width: int = 1920
     max_height: int = 1080
     mount_mode: str = "normal"  # "normal" (desktop) or "ceiling" (inverted)
+    use_behavior_mount: bool = True  # Legacy shared override; false for named cameras
 
     @classmethod
     def from_env(cls, prefix: str = "TAPO") -> "CameraConfig":
@@ -122,3 +130,106 @@ class ServerConfig:
             capture_dir=os.getenv("CAPTURE_DIR", "/tmp/wifi-cam-mcp"),
             mic_source=mic_source,
         )
+
+
+@dataclass(frozen=True)
+class CameraInventory:
+    """Named connections; credentials are excluded from their representation."""
+
+    cameras: dict[str, CameraConfig]
+    default_camera: str
+    stereo_pair: tuple[str, str] | None = None
+
+
+def load_camera_inventory() -> CameraInventory:
+    """Load project cameras, or preserve the legacy environment-only setup.
+
+    An explicitly selected missing/invalid file is an error, never a fallback.
+    The default project file is optional so existing single/stereo setups work.
+    """
+    override = os.getenv("WIFI_CAMERAS_TOML")
+    path = Path(override) if override else Path(__file__).resolve().parents[3] / "wifi-cameras.toml"
+    if not override and not path.exists():
+        cameras = {"primary": CameraConfig.from_env()}
+        right = CameraConfig.right_camera_from_env()
+        if right:
+            cameras["right"] = right
+        return CameraInventory(cameras, "primary", ("primary", "right") if right else None)
+    # Credentials can be inline or reference the package's .env/environment.
+    with path.open("rb") as file:
+        data = tomllib.load(file)
+    entries = data.get("cameras")
+    if not isinstance(entries, dict) or not entries:
+        raise ValueError("Camera file must contain at least one [cameras.<id>] table")
+    cameras = {}
+    allowed = {
+        "host",
+        "username",
+        "password",
+        "username_env",
+        "password_env",
+        "onvif_port",
+        "stream_url_env",
+        "max_width",
+        "max_height",
+        "mount_mode",
+    }
+    for camera_id, entry in entries.items():
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", camera_id):
+            raise ValueError("Camera IDs must use letters, digits, underscores or hyphens")
+        if not isinstance(entry, dict) or set(entry) - allowed:
+            raise ValueError(f"Invalid settings for camera {camera_id}")
+        host = entry.get("host")
+        if not isinstance(host, str) or not host.strip():
+            raise ValueError(f"Camera {camera_id} requires host")
+        credentials = {}
+        for key in ("username", "password"):
+            if key in entry:
+                value = entry[key]
+                if not isinstance(value, str) or not value:
+                    raise ValueError(f"Camera {camera_id}: {key} must be a non-empty string")
+                credentials[key] = value
+                continue
+            variable = entry.get(f"{key}_env")
+            if not isinstance(variable, str) or not variable:
+                raise ValueError(f"Camera {camera_id} requires {key} or {key}_env")
+            value = os.getenv(variable)
+            if not value:
+                raise ValueError(f"Camera {camera_id}: environment variable {variable} is required")
+            credentials[key] = value
+        mount = entry.get("mount_mode", "normal")
+        if mount not in ("normal", "ceiling"):
+            raise ValueError(f"Camera {camera_id}: invalid mount_mode")
+        dimensions = {}
+        for key, default in (("onvif_port", 2020), ("max_width", 1920), ("max_height", 1080)):
+            value = entry.get(key, default)
+            if type(value) is not int or value < 1 or (key == "onvif_port" and value > 65535):
+                raise ValueError(f"Camera {camera_id}: invalid {key}")
+            dimensions[key] = value
+        stream_variable = entry.get("stream_url_env")
+        if stream_variable is not None and (
+            not isinstance(stream_variable, str) or not os.getenv(stream_variable)
+        ):
+            raise ValueError(
+                f"Camera {camera_id}: stream_url_env must name a set environment variable"
+            )
+        cameras[camera_id] = CameraConfig(
+            host=host,
+            **credentials,
+            **dimensions,
+            mount_mode=mount,
+            stream_url=os.getenv(stream_variable) if stream_variable else None,
+            use_behavior_mount=False,
+        )
+    default = data.get("default_camera", next(iter(cameras)))
+    if not isinstance(default, str) or default not in cameras:
+        raise ValueError("default_camera must name a configured camera")
+    pair = data.get("stereo_pair")
+    if pair is not None and (
+        not isinstance(pair, list)
+        or len(pair) != 2
+        or any(not isinstance(name, str) or name not in cameras for name in pair)
+        or pair[0] == pair[1]
+    ):
+        raise ValueError("stereo_pair must name two distinct configured cameras")
+    return CameraInventory(cameras, default, tuple(pair) if pair else None)

@@ -19,10 +19,14 @@ from mcp.types import (
 
 from ._behavior import get_behavior
 from .camera import AudioResult, CaptureResult, MoveResult, TapoCamera
-from .config import CameraConfig, ServerConfig
+from .config import CameraInventory, ServerConfig, load_camera_inventory
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+class CameraSelectionError(ValueError):
+    """A safe user-facing camera selection error, without transport details."""
 
 
 class CameraMCPServer:
@@ -34,6 +38,9 @@ class CameraMCPServer:
         self._camera_right: TapoCamera | None = None  # Right camera (optional)
         self._server_config = ServerConfig.from_env()
         self._has_stereo = False
+        self._inventory: CameraInventory | None = None
+        self._cameras: dict[str, TapoCamera] = {}
+        self._connection_errors: dict[str, str] = {}
         self._continuity_record_script = self._resolve_continuity_record_script()
         self._setup_handlers()
 
@@ -254,7 +261,7 @@ class CameraMCPServer:
             ]
 
             # Add stereo vision tools if right camera is configured
-            if self._has_stereo:
+            if self._has_stereo or (self._inventory and len(self._inventory.cameras) >= 2):
                 tools.extend(
                     [
                         Tool(
@@ -441,6 +448,53 @@ class CameraMCPServer:
                     ]
                 )
 
+            pair_tools = {
+                "see_right",
+                "see_both",
+                "get_eye_positions",
+                "align_eyes",
+                "reset_eye_positions",
+            }
+            for tool in tools:
+                if tool.name in pair_tools or "eye" in tool.name:
+                    tool.inputSchema["properties"].update(
+                        {
+                            "left_camera_id": {
+                                "type": "string",
+                                "description": "Left camera ID; defaults to configured stereo pair",
+                            },
+                            "right_camera_id": {
+                                "type": "string",
+                                "description": "Right camera ID; defaults to configured stereo pair",
+                            },
+                        }
+                    )
+                else:
+                    tool.inputSchema["properties"]["camera_id"] = {
+                        "type": "string",
+                        "description": "Camera ID from camera_list; omitted uses default_camera",
+                    }
+                tool.description += " Use camera_list to discover camera IDs and connection status."
+            aliases = {
+                "camera_capture": "see",
+                "camera_pan_left": "look_left",
+                "camera_pan_right": "look_right",
+                "camera_tilt_up": "look_up",
+                "camera_tilt_down": "look_down",
+                "camera_look_around": "look_around",
+            }
+            for alias, original in aliases.items():
+                tool = next(tool for tool in tools if tool.name == original)
+                tools.append(
+                    Tool(name=alias, description=tool.description, inputSchema=tool.inputSchema)
+                )
+            tools.append(
+                Tool(
+                    name="camera_list",
+                    description="List named cameras, the default, stereo pair, and connection status. Contains no credentials.",
+                    inputSchema={"type": "object", "properties": {}},
+                )
+            )
             return tools
 
         @self._server.call_tool()
@@ -448,14 +502,84 @@ class CameraMCPServer:
             name: str, arguments: dict[str, Any]
         ) -> list[TextContent | ImageContent]:
             """Handle tool calls."""
-            if self._camera is None:
-                return [TextContent(type="text", text="Error: Camera not connected")]
-
+            if name == "camera_list":
+                inventory = self._inventory
+                return [
+                    TextContent(
+                        type="text",
+                        text=json.dumps(
+                            {
+                                "default_camera": inventory.default_camera if inventory else None,
+                                "stereo_pair": inventory.stereo_pair if inventory else None,
+                                "cameras": [
+                                    {
+                                        "camera_id": camera_id,
+                                        "host": config.host,
+                                        "connected": camera_id in self._cameras,
+                                        "status": (
+                                            "connected"
+                                            if camera_id in self._cameras
+                                            else "offline"
+                                            if camera_id in self._connection_errors
+                                            else "connecting"
+                                        ),
+                                        "error": self._connection_errors.get(camera_id),
+                                    }
+                                    for camera_id, config in (
+                                        inventory.cameras.items() if inventory else []
+                                    )
+                                ],
+                            }
+                        ),
+                    )
+                ]
+            aliases = {
+                "camera_capture": "see",
+                "camera_pan_left": "look_left",
+                "camera_pan_right": "look_right",
+                "camera_tilt_up": "look_up",
+                "camera_tilt_down": "look_down",
+                "camera_look_around": "look_around",
+            }
+            name = aliases.get(name, name)
             try:
+                is_pair = (
+                    name
+                    in {
+                        "see_right",
+                        "see_both",
+                        "get_eye_positions",
+                        "align_eyes",
+                        "reset_eye_positions",
+                    }
+                    or "eye" in name
+                )
+                if is_pair:
+                    pair = self._inventory.stereo_pair if self._inventory else None
+                    left_id = arguments.get("left_camera_id", pair[0] if pair else None)
+                    right_id = arguments.get("right_camera_id", pair[1] if pair else None)
+                    if left_id is None or right_id is None:
+                        raise CameraSelectionError(
+                            "Specify left_camera_id and right_camera_id, or configure stereo_pair"
+                        )
+                    if left_id == right_id:
+                        raise CameraSelectionError("Stereo operations require two distinct cameras")
+                    camera = self._select_camera(left_id)
+                    camera_right = self._select_camera(right_id)
+                    identity = f"cameras={left_id},{right_id}"
+                else:
+                    camera_id = arguments.get("camera_id")
+                    camera = self._select_camera(camera_id)
+                    camera_right = None
+                    identity = f"camera_id={camera_id or self._inventory.default_camera}"
+
+                async def record(command: str, detail: str) -> None:
+                    await self._record_continuity_event(command, f"{identity} {detail}")
+
                 match name:
                     case "see":
-                        result = await self._camera.capture_image()
-                        await self._record_continuity_event(
+                        result = await camera.capture_image()
+                        await record(
                             "record-observation",
                             self._capture_detail("see", result),
                         )
@@ -473,8 +597,8 @@ class CameraMCPServer:
 
                     case "look_left":
                         degrees = arguments.get("degrees", 30)
-                        result = await self._camera.pan_left(degrees)
-                        await self._record_continuity_event(
+                        result = await camera.pan_left(degrees)
+                        await record(
                             "record-action",
                             self._move_detail("look_left", result),
                         )
@@ -482,8 +606,8 @@ class CameraMCPServer:
 
                     case "look_right":
                         degrees = arguments.get("degrees", 30)
-                        result = await self._camera.pan_right(degrees)
-                        await self._record_continuity_event(
+                        result = await camera.pan_right(degrees)
+                        await record(
                             "record-action",
                             self._move_detail("look_right", result),
                         )
@@ -491,8 +615,8 @@ class CameraMCPServer:
 
                     case "look_up":
                         degrees = arguments.get("degrees", 20)
-                        result = await self._camera.tilt_up(degrees)
-                        await self._record_continuity_event(
+                        result = await camera.tilt_up(degrees)
+                        await record(
                             "record-action",
                             self._move_detail("look_up", result),
                         )
@@ -500,16 +624,16 @@ class CameraMCPServer:
 
                     case "look_down":
                         degrees = arguments.get("degrees", 20)
-                        result = await self._camera.tilt_down(degrees)
-                        await self._record_continuity_event(
+                        result = await camera.tilt_down(degrees)
+                        await record(
                             "record-action",
                             self._move_detail("look_down", result),
                         )
                         return [TextContent(type="text", text=result.message)]
 
                     case "look_around":
-                        captures = await self._camera.look_around()
-                        await self._record_continuity_event(
+                        captures = await camera.look_around()
+                        await record(
                             "record-observation",
                             f"look_around captures={len(captures)} "
                             f"files={','.join((capture.file_path or 'none') for capture in captures)}",
@@ -537,7 +661,7 @@ class CameraMCPServer:
                         return contents
 
                     case "camera_info":
-                        info = await self._camera.get_device_info()
+                        info = await camera.get_device_info()
                         return [
                             TextContent(
                                 type="text",
@@ -546,7 +670,7 @@ class CameraMCPServer:
                         ]
 
                     case "camera_presets":
-                        presets = await self._camera.get_presets()
+                        presets = await camera.get_presets()
                         return [
                             TextContent(
                                 type="text",
@@ -556,8 +680,8 @@ class CameraMCPServer:
 
                     case "camera_go_to_preset":
                         preset_id = arguments.get("preset_id", "")
-                        result = await self._camera.go_to_preset(preset_id)
-                        await self._record_continuity_event(
+                        result = await camera.go_to_preset(preset_id)
+                        await record(
                             "record-action",
                             f"camera_go_to_preset preset_id={preset_id} "
                             f"success={'yes' if result.success else 'no'}",
@@ -570,10 +694,8 @@ class CameraMCPServer:
                         mic_source = get_behavior(
                             "wifi-cam", "mic_source", self._server_config.mic_source
                         )
-                        result = await self._camera.listen_audio(
-                            duration, transcribe, mic_source
-                        )
-                        await self._record_continuity_event(
+                        result = await camera.listen_audio(duration, transcribe, mic_source)
+                        await record(
                             "record-observation",
                             self._audio_detail(result),
                         )
@@ -589,12 +711,12 @@ class CameraMCPServer:
                         return [TextContent(type="text", text=response_text)]
 
                     case "see_right":
-                        if not self._camera_right:
+                        if not camera_right:
                             return [
                                 TextContent(type="text", text="Error: Right camera not configured")
                             ]
-                        result = await self._camera_right.capture_image()
-                        await self._record_continuity_event(
+                        result = await camera_right.capture_image()
+                        await record(
                             "record-observation",
                             self._capture_detail("see_right", result),
                         )
@@ -611,16 +733,16 @@ class CameraMCPServer:
                         ]
 
                     case "see_both":
-                        if not self._camera_right:
+                        if not camera_right:
                             return [
                                 TextContent(type="text", text="Error: Right camera not configured")
                             ]
 
                         # Capture from both cameras concurrently
-                        left_task = self._camera.capture_image()
-                        right_task = self._camera_right.capture_image()
+                        left_task = camera.capture_image()
+                        right_task = camera_right.capture_image()
                         left_result, right_result = await asyncio.gather(left_task, right_task)
-                        await self._record_continuity_event(
+                        await record(
                             "record-observation",
                             "see_both "
                             f"left={left_result.file_path or 'none'} "
@@ -648,67 +770,67 @@ class CameraMCPServer:
                         ]
 
                     case "right_eye_look_left":
-                        if not self._camera_right:
+                        if not camera_right:
                             return [
                                 TextContent(type="text", text="Error: Right camera not configured")
                             ]
                         degrees = arguments.get("degrees", 30)
-                        result = await self._camera_right.pan_left(degrees)
-                        await self._record_continuity_event(
+                        result = await camera_right.pan_left(degrees)
+                        await record(
                             "record-action",
                             self._move_detail("right_eye_look_left", result),
                         )
                         return [TextContent(type="text", text=f"Right eye: {result.message}")]
 
                     case "right_eye_look_right":
-                        if not self._camera_right:
+                        if not camera_right:
                             return [
                                 TextContent(type="text", text="Error: Right camera not configured")
                             ]
                         degrees = arguments.get("degrees", 30)
-                        result = await self._camera_right.pan_right(degrees)
-                        await self._record_continuity_event(
+                        result = await camera_right.pan_right(degrees)
+                        await record(
                             "record-action",
                             self._move_detail("right_eye_look_right", result),
                         )
                         return [TextContent(type="text", text=f"Right eye: {result.message}")]
 
                     case "right_eye_look_up":
-                        if not self._camera_right:
+                        if not camera_right:
                             return [
                                 TextContent(type="text", text="Error: Right camera not configured")
                             ]
                         degrees = arguments.get("degrees", 20)
-                        result = await self._camera_right.tilt_up(degrees)
-                        await self._record_continuity_event(
+                        result = await camera_right.tilt_up(degrees)
+                        await record(
                             "record-action",
                             self._move_detail("right_eye_look_up", result),
                         )
                         return [TextContent(type="text", text=f"Right eye: {result.message}")]
 
                     case "right_eye_look_down":
-                        if not self._camera_right:
+                        if not camera_right:
                             return [
                                 TextContent(type="text", text="Error: Right camera not configured")
                             ]
                         degrees = arguments.get("degrees", 20)
-                        result = await self._camera_right.tilt_down(degrees)
-                        await self._record_continuity_event(
+                        result = await camera_right.tilt_down(degrees)
+                        await record(
                             "record-action",
                             self._move_detail("right_eye_look_down", result),
                         )
                         return [TextContent(type="text", text=f"Right eye: {result.message}")]
 
                     case "both_eyes_look_left":
-                        if not self._camera_right:
+                        if not camera_right:
                             return [
                                 TextContent(type="text", text="Error: Right camera not configured")
                             ]
                         degrees = arguments.get("degrees", 30)
-                        left_task = self._camera.pan_left(degrees)
-                        right_task = self._camera_right.pan_left(degrees)
+                        left_task = camera.pan_left(degrees)
+                        right_task = camera_right.pan_left(degrees)
                         await asyncio.gather(left_task, right_task)
-                        await self._record_continuity_event(
+                        await record(
                             "record-action",
                             f"both_eyes_look_left degrees={degrees}",
                         )
@@ -719,15 +841,15 @@ class CameraMCPServer:
                         ]
 
                     case "both_eyes_look_right":
-                        if not self._camera_right:
+                        if not camera_right:
                             return [
                                 TextContent(type="text", text="Error: Right camera not configured")
                             ]
                         degrees = arguments.get("degrees", 30)
-                        left_task = self._camera.pan_right(degrees)
-                        right_task = self._camera_right.pan_right(degrees)
+                        left_task = camera.pan_right(degrees)
+                        right_task = camera_right.pan_right(degrees)
                         await asyncio.gather(left_task, right_task)
-                        await self._record_continuity_event(
+                        await record(
                             "record-action",
                             f"both_eyes_look_right degrees={degrees}",
                         )
@@ -738,15 +860,15 @@ class CameraMCPServer:
                         ]
 
                     case "both_eyes_look_up":
-                        if not self._camera_right:
+                        if not camera_right:
                             return [
                                 TextContent(type="text", text="Error: Right camera not configured")
                             ]
                         degrees = arguments.get("degrees", 20)
-                        left_task = self._camera.tilt_up(degrees)
-                        right_task = self._camera_right.tilt_up(degrees)
+                        left_task = camera.tilt_up(degrees)
+                        right_task = camera_right.tilt_up(degrees)
                         await asyncio.gather(left_task, right_task)
-                        await self._record_continuity_event(
+                        await record(
                             "record-action",
                             f"both_eyes_look_up degrees={degrees}",
                         )
@@ -757,15 +879,15 @@ class CameraMCPServer:
                         ]
 
                     case "both_eyes_look_down":
-                        if not self._camera_right:
+                        if not camera_right:
                             return [
                                 TextContent(type="text", text="Error: Right camera not configured")
                             ]
                         degrees = arguments.get("degrees", 20)
-                        left_task = self._camera.tilt_down(degrees)
-                        right_task = self._camera_right.tilt_down(degrees)
+                        left_task = camera.tilt_down(degrees)
+                        right_task = camera_right.tilt_down(degrees)
                         await asyncio.gather(left_task, right_task)
-                        await self._record_continuity_event(
+                        await record(
                             "record-action",
                             f"both_eyes_look_down degrees={degrees}",
                         )
@@ -776,12 +898,12 @@ class CameraMCPServer:
                         ]
 
                     case "get_eye_positions":
-                        if not self._camera_right:
+                        if not camera_right:
                             return [
                                 TextContent(type="text", text="Error: Right camera not configured")
                             ]
-                        left_pos = self._camera.get_position()
-                        right_pos = self._camera_right.get_position()
+                        left_pos = camera.get_position()
+                        right_pos = camera_right.get_position()
                         return [
                             TextContent(
                                 type="text",
@@ -798,35 +920,35 @@ class CameraMCPServer:
                         ]
 
                     case "align_eyes":
-                        if not self._camera_right:
+                        if not camera_right:
                             return [
                                 TextContent(type="text", text="Error: Right camera not configured")
                             ]
-                        left_pos = self._camera.get_position()
-                        right_pos = self._camera_right.get_position()
+                        left_pos = camera.get_position()
+                        right_pos = camera_right.get_position()
 
                         pan_diff = left_pos.pan - right_pos.pan
                         tilt_diff = left_pos.tilt - right_pos.tilt
 
                         messages = []
                         if pan_diff > 0:
-                            await self._camera_right.pan_right(pan_diff)
+                            await camera_right.pan_right(pan_diff)
                             messages.append(f"Right eye panned right by {pan_diff}°")
                         elif pan_diff < 0:
-                            await self._camera_right.pan_left(-pan_diff)
+                            await camera_right.pan_left(-pan_diff)
                             messages.append(f"Right eye panned left by {-pan_diff}°")
 
                         if tilt_diff > 0:
-                            await self._camera_right.tilt_up(tilt_diff)
+                            await camera_right.tilt_up(tilt_diff)
                             messages.append(f"Right eye tilted up by {tilt_diff}°")
                         elif tilt_diff < 0:
-                            await self._camera_right.tilt_down(-tilt_diff)
+                            await camera_right.tilt_down(-tilt_diff)
                             messages.append(f"Right eye tilted down by {-tilt_diff}°")
 
                         if not messages:
                             return [TextContent(type="text", text="Eyes already aligned!")]
 
-                        await self._record_continuity_event(
+                        await record(
                             "record-action",
                             f"align_eyes adjustments={','.join(messages)}",
                         )
@@ -835,13 +957,13 @@ class CameraMCPServer:
                         ]
 
                     case "reset_eye_positions":
-                        if not self._camera_right:
+                        if not camera_right:
                             return [
                                 TextContent(type="text", text="Error: Right camera not configured")
                             ]
-                        self._camera.reset_position_tracking()
-                        self._camera_right.reset_position_tracking()
-                        await self._record_continuity_event(
+                        camera.reset_position_tracking()
+                        camera_right.reset_position_tracking()
+                        await record(
                             "record-action",
                             "reset_eye_positions",
                         )
@@ -855,50 +977,85 @@ class CameraMCPServer:
                         return [TextContent(type="text", text=f"Unknown tool: {name}")]
 
             except Exception as e:
-                logger.exception(f"Error in tool {name}")
-                return [TextContent(type="text", text=f"Error: {e!s}")]
+                if isinstance(e, CameraSelectionError):
+                    message = str(e)
+                else:
+                    logger.warning("Camera tool %s failed (%s)", name, type(e).__name__)
+                    message = "Camera operation failed; check camera connection and configuration"
+                return [TextContent(type="text", text=f"Error: {message}")]
+
+        self._list_tools = list_tools
+        self._call_tool = call_tool
+
+    def _select_camera(self, camera_id: str | None) -> TapoCamera:
+        if self._inventory is None:
+            raise CameraSelectionError("Camera inventory not loaded")
+        selected = camera_id if camera_id is not None else self._inventory.default_camera
+        if not isinstance(selected, str) or selected not in self._inventory.cameras:
+            raise CameraSelectionError("Unknown camera ID; use camera_list")
+        if selected not in self._cameras:
+            if selected not in self._connection_errors:
+                raise CameraSelectionError(f"Camera {selected} is connecting; try again shortly")
+            raise CameraSelectionError(
+                f"Camera {selected} is offline; check connection and restart server"
+            )
+        return self._cameras[selected]
 
     async def connect_camera(self) -> None:
-        """Connect to the camera(s)."""
-        # Connect primary (left) camera
-        config = CameraConfig.from_env()
-        self._camera = TapoCamera(config, self._server_config.capture_dir)
-        await self._camera.connect()
-        logger.info(f"Connected to left/primary camera at {config.host}")
+        """Connect independently; a failed camera must not stop the MCP server."""
+        if self._inventory is None:
+            self._inventory = load_camera_inventory()
+        semaphore = asyncio.Semaphore(4)
 
-        # Try to connect right camera if configured
-        right_config = CameraConfig.right_camera_from_env()
-        if right_config:
-            try:
-                self._camera_right = TapoCamera(right_config, self._server_config.capture_dir)
-                await self._camera_right.connect()
-                self._has_stereo = True
-                logger.info(f"Connected to right camera at {right_config.host} (stereo vision enabled)")
-            except Exception as e:
-                logger.warning(f"Failed to connect right camera at {right_config.host}: {e}")
-                self._camera_right = None
-                self._has_stereo = False
+        async def connect_one(camera_id: str, config) -> None:
+            camera = TapoCamera(config, str(Path(self._server_config.capture_dir) / camera_id))
+            async with semaphore:
+                try:
+                    await asyncio.wait_for(camera.connect(), timeout=15)
+                except asyncio.CancelledError:
+                    await camera.disconnect()
+                    raise
+                except Exception:
+                    self._connection_errors[camera_id] = "Connection failed or timed out"
+                    logger.warning("Camera %s is offline", camera_id)
+                    try:
+                        await camera.disconnect()
+                    except Exception:
+                        logger.warning("Camera %s cleanup failed", camera_id)
+                else:
+                    self._cameras[camera_id] = camera
+
+        await asyncio.gather(
+            *(
+                connect_one(camera_id, config)
+                for camera_id, config in self._inventory.cameras.items()
+            )
+        )
+        self._camera = self._cameras.get(self._inventory.default_camera)
+        pair = self._inventory.stereo_pair
+        self._camera_right = self._cameras.get(pair[1]) if pair else None
+        self._has_stereo = pair is not None
 
     async def disconnect_camera(self) -> None:
-        """Disconnect from the camera(s)."""
-        if self._camera:
-            await self._camera.disconnect()
-            self._camera = None
-            logger.info("Disconnected from left/primary camera")
-
-        if self._camera_right:
-            await self._camera_right.disconnect()
-            self._camera_right = None
-            self._has_stereo = False
-            logger.info("Disconnected from right camera")
+        """Always attempt to clean up every connected camera."""
+        await asyncio.gather(
+            *(camera.disconnect() for camera in self._cameras.values()), return_exceptions=True
+        )
+        self._cameras.clear()
+        self._camera = None
+        self._camera_right = None
+        self._has_stereo = False
 
     @asynccontextmanager
     async def run_context(self):
         """Context manager for server lifecycle."""
+        self._inventory = load_camera_inventory()
+        self._connection_task = asyncio.create_task(self.connect_camera())
         try:
-            await self.connect_camera()
             yield
         finally:
+            self._connection_task.cancel()
+            await asyncio.gather(self._connection_task, return_exceptions=True)
             await self.disconnect_camera()
 
     async def run(self) -> None:
@@ -916,6 +1073,7 @@ def main() -> None:
     """Entry point for the MCP server."""
     try:
         import jurigged
+
         jurigged.watch(pattern="src/**/*.py", logger=None)
     except ImportError:
         pass

@@ -73,6 +73,9 @@ jobs:
       - name: Lint
         run: uv run ruff check .
 
+      - name: Run tests
+        run: uv run pytest -v
+
   test-room-actuator-mcp:
     name: Test room-actuator-mcp
     runs-on: ubuntu-latest
