@@ -1,0 +1,2 @@
+# Bash scripts must keep LF line endings on Windows too.
+*.sh text eol=lf
