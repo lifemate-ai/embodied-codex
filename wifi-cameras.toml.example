@@ -1,0 +1,33 @@
+# Copy to wifi-cameras.toml at the repository root and set actual camera IPs.
+# MCP registration stays as one wifi-cam server regardless of camera count.
+# Set camera account credentials below; this local file is ignored by Git.
+# Optional alternative: username_env / password_env can reference environment variables.
+# Changes are loaded when wifi-cam-mcp restarts.
+default_camera = "inside"
+
+# Optional: two cameras you want to use as a left/right pair.
+# stereo_pair = ["inside", "bedside"]
+
+[cameras.outside]
+host = "192.0.2.10"
+username = "your-camera-user"
+password = "your-camera-password"
+mount_mode = "normal"
+
+[cameras.inside]
+host = "192.0.2.11"
+username = "your-camera-user"
+password = "your-camera-password"
+mount_mode = "normal"
+
+[cameras.bedside]
+host = "192.0.2.12"
+username = "your-camera-user"
+password = "your-camera-password"
+mount_mode = "normal"
+
+# Optional per-camera settings:
+# onvif_port = 2020
+# max_width = 1920
+# max_height = 1080
+# stream_url_env = "BEDSIDE_CAMERA_STREAM_URL"

@@ -104,6 +104,10 @@ usbipd attach --wsl --busid <BUSID>
 
 #### wifi-cam-mcp（Wi-Fi カメラ）
 
+外・室内・ベッド脇など複数台を使う場合は、MCP登録を増やさずに
+[`wifi-cameras.toml.example`](./wifi-cameras.toml.example) から専用設定を作る。
+設定方法は [Wi-Fi カメラの複数台設定](./wifi-cam-mcp/README.md#複数の場所のカメラを使う) を参照。
+
 ```bash
 cd wifi-cam-mcp
 uv sync
